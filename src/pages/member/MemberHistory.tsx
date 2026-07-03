@@ -7,6 +7,12 @@ import { useAuthStore } from '@/store/authStore';
 import { calcularEdad } from '@/utils/statusHelpers';
 import AppointmentsTab from '@/components/member/AppointmentsTab';
 import MedicationsTab from '@/components/member/MedicationsTab';
+import ExamsTab from '@/components/member/ExamsTab';
+import ReferralsTab from '@/components/member/ReferralsTab';
+import MedicalLeavesTab from '@/components/member/MedicalLeavesTab';
+import VaccinationsTab from '@/components/member/VaccinationsTab';
+import VitalSignsTab from '@/components/member/VitalSignsTab';
+import DocumentsTab from '@/components/member/DocumentsTab';
 
 const TABS = [
   { key: 'resumen', label: 'Resumen' },
@@ -120,16 +126,16 @@ export default function MemberHistory() {
 
       {tab === 'citas' && <AppointmentsTab patientId={member.id} patientName={member.name} />}
       {tab === 'medicamentos' && <MedicationsTab patientId={member.id} patientName={member.name} />}
+      {tab === 'examenes' && <ExamsTab patientId={member.id} patientName={member.name} />}
+      {tab === 'remisiones' && <ReferralsTab patientId={member.id} patientName={member.name} />}
+      {tab === 'incapacidades' && <MedicalLeavesTab patientId={member.id} patientName={member.name} />}
+      {tab === 'vacunas' && <VaccinationsTab patientId={member.id} patientName={member.name} />}
+      {tab === 'signos' && <VitalSignsTab patientId={member.id} patientName={member.name} />}
+      {tab === 'documentos' && <DocumentsTab patientId={member.id} patientName={member.name} />}
 
       {tab === 'resumen' && (
         <div className="card p-10 text-center text-sm text-gray-500">
-          El resumen con línea de tiempo y estadísticas se implementa junto al resto de módulos (Fase 4).
-        </div>
-      )}
-
-      {!['citas', 'medicamentos', 'resumen'].includes(tab) && (
-        <div className="card p-10 text-center text-sm text-gray-500">
-          Este módulo está en construcción — llega en las próximas fases.
+          El resumen con línea de tiempo y estadísticas consolidadas llega en la Fase 5.
         </div>
       )}
     </div>

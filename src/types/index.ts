@@ -258,6 +258,7 @@ export interface Exam {
   delivered_to_doctor_date: string | null;
   cancelled_reason: string | null;
   notes: string | null;
+  patient?: Pick<User, 'id' | 'name' | 'avatar'>;
   created_at: string;
 }
 
@@ -285,7 +286,10 @@ export interface Referral {
   scheduled_appointment_id: number | null;
   notes: string | null;
   days_until_expiration?: number | null;
+  traffic_light?: { level: TrafficLight; label: string } | null;
   referring_doctor?: Doctor;
+  referred_doctor?: Doctor;
+  patient?: Pick<User, 'id' | 'name' | 'avatar'>;
   created_at: string;
 }
 
@@ -306,6 +310,8 @@ export interface MedicalLeave {
   leave_type: 'enfermedad_general' | 'accidente_trabajo' | 'licencia_maternidad' | 'licencia_paternidad' | 'otro';
   ips_issued: string | null;
   notes: string | null;
+  issuing_doctor?: Doctor;
+  patient?: Pick<User, 'id' | 'name' | 'avatar'>;
   created_at: string;
 }
 
@@ -321,7 +327,9 @@ export interface Vaccination {
   lot_number: string | null;
   ips_or_center: string | null;
   next_dose_date: string | null;
+  days_until_next_dose?: number | null;
   notes: string | null;
+  patient?: Pick<User, 'id' | 'name' | 'avatar'>;
   created_at: string;
 }
 
@@ -341,6 +349,9 @@ export interface VitalSign {
   temperature: number | null;
   oxygen_saturation: number | null;
   notes: string | null;
+  out_of_range?: string[];
+  patient?: Pick<User, 'id' | 'name' | 'avatar'>;
+  created_at?: string;
 }
 
 export interface VitalSignRange {
@@ -413,12 +424,12 @@ export interface MedicalDocument {
   document_type: DocumentType;
   title: string;
   description: string | null;
-  file_path: string;
   file_name: string;
   file_type: 'image' | 'pdf';
   file_size: number;
   document_date: string | null;
   uploaded_at: string;
+  patient?: Pick<User, 'id' | 'name' | 'avatar'>;
 }
 
 // ── Notificaciones ───────────────────────────────────────────────
