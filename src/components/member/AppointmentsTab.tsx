@@ -3,10 +3,17 @@ import { useQuery } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import type { Appointment, AppointmentStatus } from '@/types';
 import { appointmentService } from '@/services/api/appointments';
-import { getAppointmentTrafficLight } from '@/utils/statusHelpers';
+import { getAppointmentTrafficLight, getStatusBadge, formatDate, formatDateTime } from '@/utils/statusHelpers';
 import AppointmentCard from '@/components/shared/AppointmentCard';
 import NewAppointmentModal from '@/components/modals/NewAppointmentModal';
 import ChangeAppointmentStatusModal from '@/components/modals/ChangeAppointmentStatusModal';
+import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
+import DetailModal from '@/components/modals/DetailModal';
+
+const URGENCY_LABEL: Record<string, string> = { rutina: 'Rutina', prioritaria: 'Prioritaria', urgente: 'Urgente' };
+const APPOINTMENT_TYPE_LABEL: Record<string, string> = {
+  consulta: 'Consulta', control: 'Control', urgencias: 'Urgencias', domiciliaria: 'Domiciliaria', telemedicina: 'Telemedicina',
+};
 
 interface AppointmentsTabProps {
   patientId: number;
@@ -53,6 +60,9 @@ function groupAppointments(appointments: Appointment[]): Group[] {
 export default function AppointmentsTab({ patientId, patientName }: AppointmentsTabProps) {
   const [showNewModal, setShowNewModal] = useState(false);
   const [statusChangeTarget, setStatusChangeTarget] = useState<Appointment | null>(null);
+  const [attachTarget, setAttachTarget] = useState<Appointment | null>(null);
+  const [viewTarget, setViewTarget] = useState<Appointment | null>(null);
+  const [editTarget, setEditTarget] = useState<Appointment | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ done: true });
 
   const { data: appointments, isLoading } = useQuery({
@@ -108,6 +118,8 @@ export default function AppointmentsTab({ patientId, patientName }: Appointments
                     key={a.id}
                     appointment={a}
                     onChangeStatus={setStatusChangeTarget}
+                    onAttachDocument={setAttachTarget}
+                    onView={setViewTarget}
                   />
                 ))}
               </div>
@@ -124,10 +136,63 @@ export default function AppointmentsTab({ patientId, patientName }: Appointments
         />
       )}
 
+      {editTarget && (
+        <NewAppointmentModal
+          patientId={patientId}
+          patientName={patientName}
+          appointment={editTarget}
+          onClose={() => setEditTarget(null)}
+        />
+      )}
+
+      {viewTarget && (
+        <DetailModal
+          title={viewTarget.specialty}
+          subtitle={`Para ${patientName}`}
+          badge={getStatusBadge('appointment', viewTarget.status)}
+          relatedType="appointment"
+          relatedId={viewTarget.id}
+          onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
+          onClose={() => setViewTarget(null)}
+          fields={[
+            { label: 'Tipo de cita', value: APPOINTMENT_TYPE_LABEL[viewTarget.appointment_type] },
+            { label: 'Fecha y hora', value: viewTarget.is_need ? 'Sin fecha — necesidad' : formatDateTime(viewTarget.appointment_date) },
+            { label: 'Urgencia', value: viewTarget.is_need ? URGENCY_LABEL[viewTarget.need_urgency] : null },
+            { label: 'Médico', value: viewTarget.doctor?.name ?? viewTarget.doctor_name_free },
+            { label: 'IPS / Lugar', value: viewTarget.ips },
+            { label: 'Dirección', value: viewTarget.address },
+            { label: 'Motivo', value: viewTarget.is_need ? viewTarget.need_reason : viewTarget.reason, fullWidth: true },
+            { label: 'Diagnóstico', value: viewTarget.diagnosis, fullWidth: true },
+            {
+              label: 'Recurrencia',
+              value: viewTarget.is_recurring ? `Cada ${viewTarget.recurrence_type} · #${viewTarget.recurrence_number}` : null,
+            },
+            { label: 'Próxima cita sugerida', value: viewTarget.next_appointment_date ? formatDate(viewTarget.next_appointment_date) : null },
+            {
+              label: 'Cancelación',
+              value: viewTarget.status === 'cancelada' ? `${viewTarget.cancelled_by}: ${viewTarget.cancelled_reason}` : null,
+              fullWidth: true,
+            },
+            { label: 'Notas', value: viewTarget.notes, fullWidth: true },
+          ]}
+        />
+      )}
+
       {statusChangeTarget && (
         <ChangeAppointmentStatusModal
           appointment={statusChangeTarget}
           onClose={() => setStatusChangeTarget(null)}
+        />
+      )}
+
+      {attachTarget && (
+        <UploadDocumentModal
+          patientId={patientId}
+          patientName={patientName}
+          relatedType="appointment"
+          relatedId={attachTarget.id}
+          contextLabel={`Cita de ${attachTarget.specialty}`}
+          onClose={() => setAttachTarget(null)}
         />
       )}
     </div>

@@ -7,11 +7,13 @@ import { X, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { medicationService } from '@/services/api/medications';
 import { suggestSchedulesFromFrequency } from '@/utils/scheduleSuggestions';
-import type { MedicationStatus } from '@/types';
+import { toDateInputValue } from '@/utils/statusHelpers';
+import type { Medication, MedicationStatus } from '@/types';
 
 interface NewMedicationModalProps {
   patientId: number;
   patientName: string;
+  medication?: Medication;
   onClose: () => void;
 }
 
@@ -55,12 +57,35 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function NewMedicationModal({ patientId, patientName, onClose }: NewMedicationModalProps) {
+export default function NewMedicationModal({ patientId, patientName, medication, onClose }: NewMedicationModalProps) {
   const queryClient = useQueryClient();
 
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { is_recurring: false, track_intake: false, status: 'con_orden' },
+    defaultValues: medication ? {
+      name: medication.name,
+      active_ingredient: medication.active_ingredient ?? '',
+      presentation: medication.presentation ?? '',
+      dosage: medication.dosage,
+      frequency: medication.frequency,
+      duration_days: medication.duration_days ? String(medication.duration_days) : '',
+      quantity: medication.quantity ? String(medication.quantity) : '',
+      start_date: toDateInputValue(medication.start_date),
+      is_recurring: medication.is_recurring,
+      recurrence_days: medication.recurrence_days ? String(medication.recurrence_days) : '',
+      alert_days_before: medication.alert_days_before ? String(medication.alert_days_before) : '',
+      status: medication.status,
+      authorization_number: medication.authorization_number ?? '',
+      notes: medication.notes ?? '',
+      track_intake: medication.track_intake,
+      intake_quantity_per_dose: medication.intake_quantity_per_dose ? String(medication.intake_quantity_per_dose) : '',
+      low_stock_alert_doses: medication.low_stock_alert_doses ? String(medication.low_stock_alert_doses) : '',
+      schedules: medication.schedules?.map((s) => ({
+        time_of_day: s.time_of_day.slice(0, 5),
+        label: s.label ?? '',
+        reminder_minutes_before: String(s.reminder_minutes_before),
+      })),
+    } : { is_recurring: false, track_intake: false, status: 'con_orden' },
   });
 
   const { fields, append, remove, replace } = useFieldArray({ control, name: 'schedules' });
@@ -76,33 +101,51 @@ export default function NewMedicationModal({ patientId, patientName, onClose }: 
   }, [trackIntake, frequency, fields.length, replace]);
 
   const mutation = useMutation({
-    mutationFn: (v: FormValues) => medicationService.create({
-      user_id: patientId,
-      name: v.name,
-      active_ingredient: v.active_ingredient || undefined,
-      presentation: v.presentation || undefined,
-      dosage: v.dosage,
-      frequency: v.frequency,
-      duration_days: v.duration_days ? Number(v.duration_days) : undefined,
-      quantity: v.quantity ? Number(v.quantity) : undefined,
-      start_date: v.start_date || undefined,
-      is_recurring: v.is_recurring,
-      recurrence_days: v.is_recurring && v.recurrence_days ? Number(v.recurrence_days) : undefined,
-      alert_days_before: v.alert_days_before ? Number(v.alert_days_before) : undefined,
-      status: v.status as MedicationStatus,
-      authorization_number: v.authorization_number || undefined,
-      notes: v.notes || undefined,
-      track_intake: v.track_intake,
-      intake_quantity_per_dose: v.track_intake && v.intake_quantity_per_dose ? Number(v.intake_quantity_per_dose) : undefined,
-      low_stock_alert_doses: v.low_stock_alert_doses ? Number(v.low_stock_alert_doses) : undefined,
-      schedules: v.track_intake
+    mutationFn: async (v: FormValues) => {
+      const basePayload = {
+        name: v.name,
+        active_ingredient: v.active_ingredient || undefined,
+        presentation: v.presentation || undefined,
+        dosage: v.dosage,
+        frequency: v.frequency,
+        duration_days: v.duration_days ? Number(v.duration_days) : undefined,
+        quantity: v.quantity ? Number(v.quantity) : undefined,
+        start_date: v.start_date || undefined,
+        is_recurring: v.is_recurring,
+        recurrence_days: v.is_recurring && v.recurrence_days ? Number(v.recurrence_days) : undefined,
+        alert_days_before: v.alert_days_before ? Number(v.alert_days_before) : undefined,
+        authorization_number: v.authorization_number || undefined,
+        notes: v.notes || undefined,
+        track_intake: v.track_intake,
+        intake_quantity_per_dose: v.track_intake && v.intake_quantity_per_dose ? Number(v.intake_quantity_per_dose) : undefined,
+        low_stock_alert_doses: v.low_stock_alert_doses ? Number(v.low_stock_alert_doses) : undefined,
+      };
+      const schedules = v.track_intake
         ? v.schedules?.map((s) => ({
           time_of_day: s.time_of_day,
           label: s.label || undefined,
           reminder_minutes_before: s.reminder_minutes_before ? Number(s.reminder_minutes_before) : 5,
         }))
-        : undefined,
-    }),
+        : undefined;
+
+      if (medication) {
+        const result = await medicationService.update(medication.id, basePayload);
+        // Los horarios de toma se gestionan en un endpoint aparte (editor de horarios).
+        if (schedules && schedules.length > 0) {
+          await medicationService.saveSchedules(medication.id, schedules);
+        } else if ((medication.schedules?.length ?? 0) > 0) {
+          await Promise.all(medication.schedules!.map((s) => medicationService.deleteSchedule(medication.id, s.id)));
+        }
+        return result;
+      }
+
+      return medicationService.create({
+        ...basePayload,
+        user_id: patientId,
+        status: v.status as MedicationStatus,
+        schedules,
+      });
+    },
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['medications'] });
@@ -119,7 +162,7 @@ export default function NewMedicationModal({ patientId, patientName, onClose }: 
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)] sticky top-0 bg-[var(--color-surface)] dark:bg-[#1a2e1b] z-10">
           <div>
             <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
-              Nuevo medicamento
+              {medication ? 'Editar medicamento' : 'Nuevo medicamento'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
           </div>
@@ -169,12 +212,14 @@ export default function NewMedicationModal({ patientId, patientName, onClose }: 
             <input type="date" className="input" {...register('start_date')} />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Estado inicial</label>
-            <select className="input" {...register('status')}>
-              {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
+          {!medication && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Estado inicial</label>
+              <select className="input" {...register('status')}>
+                {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
 
           {/* Recurrencia / crónico */}
           <div className="p-3 rounded-lg bg-[var(--color-primary-100)]/40">
@@ -231,15 +276,17 @@ export default function NewMedicationModal({ patientId, patientName, onClose }: 
 
                   <div className="space-y-2">
                     {fields.map((field, index) => (
-                      <div key={field.id} className="flex items-center gap-2">
-                        <input type="time" className="input flex-shrink-0 w-28" {...register(`schedules.${index}.time_of_day`)} />
-                        <input className="input flex-1" placeholder="Etiqueta (ej: Desayuno)" {...register(`schedules.${index}.label`)} />
-                        <select className="input flex-shrink-0 w-24" {...register(`schedules.${index}.reminder_minutes_before`)}>
-                          {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m} min</option>)}
-                        </select>
-                        <button type="button" onClick={() => remove(index)} className="text-gray-400 hover:text-[var(--color-alert-red)] flex-shrink-0">
-                          <Trash2 size={15} />
-                        </button>
+                      <div key={field.id} className="flex flex-wrap items-center gap-2 p-2 rounded-lg bg-white/50 dark:bg-black/10">
+                        <input type="time" className="input flex-shrink-0 w-[6.5rem]" {...register(`schedules.${index}.time_of_day`)} />
+                        <input className="input flex-1 min-w-[8rem]" placeholder="Etiqueta (ej: Desayuno)" {...register(`schedules.${index}.label`)} />
+                        <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+                          <select className="input w-20" {...register(`schedules.${index}.reminder_minutes_before`)}>
+                            {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m} min</option>)}
+                          </select>
+                          <button type="button" onClick={() => remove(index)} className="text-gray-400 hover:text-[var(--color-alert-red)] p-1 flex-shrink-0">
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -259,7 +306,7 @@ export default function NewMedicationModal({ patientId, patientName, onClose }: 
           </div>
 
           <button type="submit" disabled={mutation.isPending} className="btn btn--primary w-full py-3" style={{ borderRadius: '10px' }}>
-            {mutation.isPending ? 'Guardando...' : '¡Registrar medicamento!'}
+            {mutation.isPending ? 'Guardando...' : medication ? 'Guardar cambios' : '¡Registrar medicamento!'}
           </button>
         </form>
       </div>

@@ -7,6 +7,7 @@ import { householdService } from '@/services/api/household';
 import { dashboardService } from '@/services/api/dashboard';
 import { formatDateTime } from '@/utils/statusHelpers';
 import TodayIntakesPanel from '@/components/shared/TodayIntakesPanel';
+import { useNotificationIntakeAction } from '@/hooks/useNotificationIntakeAction';
 import type { TrafficLight } from '@/types';
 
 const LEVEL_DOT: Record<string, string> = {
@@ -20,6 +21,8 @@ const LEVEL_DOT: Record<string, string> = {
 export default function Dashboard() {
   const { user, isViewer } = useAuthStore();
   const [levelFilter, setLevelFilter] = useState<TrafficLight | null>(null);
+
+  useNotificationIntakeAction();
 
   const { data: household } = useQuery({
     queryKey: ['household', 'current'],

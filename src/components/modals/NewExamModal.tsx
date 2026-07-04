@@ -5,10 +5,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { examService } from '@/services/api/exams';
+import { toDateTimeInputValue } from '@/utils/statusHelpers';
+import type { Exam } from '@/types';
 
 interface NewExamModalProps {
   patientId: number;
   patientName: string;
+  exam?: Exam;
   onClose: () => void;
 }
 
@@ -23,15 +26,22 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function NewExamModal({ patientId, patientName, onClose }: NewExamModalProps) {
+export default function NewExamModal({ patientId, patientName, exam, onClose }: NewExamModalProps) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { exam_type: 'laboratorio', urgency: 'rutina' },
+    defaultValues: exam ? {
+      name: exam.name,
+      exam_type: exam.exam_type,
+      urgency: exam.urgency,
+      lab_or_center: exam.lab_or_center ?? '',
+      scheduled_date: toDateTimeInputValue(exam.scheduled_date),
+      notes: exam.notes ?? '',
+    } : { exam_type: 'laboratorio', urgency: 'rutina' },
   });
 
   const mutation = useMutation({
-    mutationFn: (v: FormValues) => examService.create({ ...v, user_id: patientId }),
+    mutationFn: (v: FormValues) => (exam ? examService.update(exam.id, v) : examService.create({ ...v, user_id: patientId })),
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['exams'] });
@@ -46,7 +56,9 @@ export default function NewExamModal({ patientId, patientName, onClose }: NewExa
       <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)]">
           <div>
-            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>Nuevo examen</h2>
+            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
+              {exam ? 'Editar examen' : 'Nuevo examen'}
+            </h2>
             <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
           </div>
           <button onClick={onClose} className="btn btn--ghost p-2 rounded-full"><X size={18} /></button>
@@ -94,7 +106,7 @@ export default function NewExamModal({ patientId, patientName, onClose }: NewExa
           </div>
 
           <button type="submit" disabled={mutation.isPending} className="btn btn--primary w-full py-3" style={{ borderRadius: '10px' }}>
-            {mutation.isPending ? 'Guardando...' : 'Registrar examen'}
+            {mutation.isPending ? 'Guardando...' : exam ? 'Guardar cambios' : 'Registrar examen'}
           </button>
         </form>
       </div>

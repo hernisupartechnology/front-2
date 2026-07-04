@@ -1,4 +1,4 @@
-import { Calendar, MapPin, Repeat, Stethoscope, User as UserIcon } from 'lucide-react';
+import { Calendar, MapPin, Paperclip, Repeat, Stethoscope, User as UserIcon } from 'lucide-react';
 import type { Appointment } from '@/types';
 import { getAppointmentTrafficLight, getStatusBadge, formatDateTime, formatDate } from '@/utils/statusHelpers';
 
@@ -6,7 +6,8 @@ interface AppointmentCardProps {
   appointment: Appointment;
   showPatientName?: boolean;
   onChangeStatus?: (appointment: Appointment) => void;
-  onEdit?: (appointment: Appointment) => void;
+  onAttachDocument?: (appointment: Appointment) => void;
+  onView?: (appointment: Appointment) => void;
 }
 
 const URGENCY_LABEL: Record<string, string> = {
@@ -20,7 +21,7 @@ const URGENCY_LABEL: Record<string, string> = {
  * más visible, seguida del badge de estado. Nunca hardcodear colores aquí:
  * siempre vía getAppointmentTrafficLight / getStatusBadge.
  */
-export default function AppointmentCard({ appointment, showPatientName, onChangeStatus, onEdit }: AppointmentCardProps) {
+export default function AppointmentCard({ appointment, showPatientName, onChangeStatus, onAttachDocument, onView }: AppointmentCardProps) {
   const trafficLight = getAppointmentTrafficLight(appointment);
   const badge = getStatusBadge('appointment', appointment.status);
   const isFinal = ['realizada', 'cancelada', 'no_asistio'].includes(appointment.status);
@@ -30,7 +31,10 @@ export default function AppointmentCard({ appointment, showPatientName, onChange
     : null;
 
   return (
-    <div className={`card p-4 pl-5 animate-fade-in ${!isFinal ? '' : 'opacity-80'}`}>
+    <div
+      className={`card p-4 pl-5 animate-fade-in ${!isFinal ? '' : 'opacity-80'} ${onView ? 'cursor-pointer' : ''}`}
+      onClick={() => onView?.(appointment)}
+    >
       <div className={`traffic-bar traffic-bar--${trafficLight.level}`} />
 
       <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
@@ -114,13 +118,21 @@ export default function AppointmentCard({ appointment, showPatientName, onChange
 
       <div className="flex gap-2 mt-3 pt-3 border-t border-[rgba(27,94,32,.08)] dark:border-[rgba(165,214,167,.08)]">
         {!isFinal && onChangeStatus && (
-          <button onClick={() => onChangeStatus(appointment)} className="btn btn--secondary text-xs py-1.5 px-3" style={{ minHeight: 'auto' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeStatus(appointment); }}
+            className="btn btn--secondary text-xs py-1.5 px-3"
+            style={{ minHeight: 'auto' }}
+          >
             {appointment.is_need ? 'Agendar' : 'Cambiar estado'}
           </button>
         )}
-        {onEdit && (
-          <button onClick={() => onEdit(appointment)} className="btn btn--ghost text-xs py-1.5 px-3" style={{ minHeight: 'auto' }}>
-            Editar
+        {onAttachDocument && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAttachDocument(appointment); }}
+            className="btn btn--ghost text-xs py-1.5 px-3 gap-1 ml-auto"
+            style={{ minHeight: 'auto' }}
+          >
+            <Paperclip size={13} /> Adjuntar documento
           </button>
         )}
       </div>

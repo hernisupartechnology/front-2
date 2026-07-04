@@ -4,13 +4,26 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { medicalDocumentService } from '@/services/api/medicalDocuments';
-import type { DocumentType } from '@/types';
+import type { DocumentRelatedType, DocumentType } from '@/types';
 
 interface UploadDocumentModalProps {
   patientId: number;
   patientName: string;
+  /** Cuando se sube desde una cita/medicamento/examen/etc., queda enlazado a ese registro. */
+  relatedType?: DocumentRelatedType;
+  relatedId?: number;
+  /** Texto descriptivo del registro al que quedará enlazado (ej: "Cardiología · 12/07/2026"). */
+  contextLabel?: string;
   onClose: () => void;
 }
+
+const DEFAULT_DOCUMENT_TYPE_BY_RELATED: Partial<Record<DocumentRelatedType, DocumentType>> = {
+  medication: 'orden_medicamento',
+  medical_leave: 'incapacidad',
+  referral: 'remision',
+  vaccination: 'vacuna',
+  exam: 'resultado_examen',
+};
 
 const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
   { value: 'historia_clinica', label: 'Historia clínica' },
@@ -31,16 +44,22 @@ interface FormValues {
   description?: string;
 }
 
-export default function UploadDocumentModal({ patientId, patientName, onClose }: UploadDocumentModalProps) {
+export default function UploadDocumentModal({
+  patientId, patientName, relatedType, relatedId, contextLabel, onClose,
+}: UploadDocumentModalProps) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const { register, handleSubmit } = useForm<FormValues>({ defaultValues: { document_type: 'otro' } });
+  const { register, handleSubmit } = useForm<FormValues>({
+    defaultValues: { document_type: DEFAULT_DOCUMENT_TYPE_BY_RELATED[relatedType ?? 'general'] ?? 'otro' },
+  });
 
   const mutation = useMutation({
     mutationFn: (v: FormValues) => {
       if (!file) throw new Error('Selecciona un archivo');
-      return medicalDocumentService.upload({ ...v, user_id: patientId, file });
+      return medicalDocumentService.upload({
+        ...v, user_id: patientId, file, related_type: relatedType, related_id: relatedId,
+      });
     },
     onSuccess: (data) => {
       toast.success(data.message);
@@ -66,7 +85,9 @@ export default function UploadDocumentModal({ patientId, patientName, onClose }:
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)]">
           <div>
             <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>Subir documento</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Para {patientName}{contextLabel && <> · <span className="font-medium">{contextLabel}</span></>}
+            </p>
           </div>
           <button onClick={onClose} className="btn btn--ghost p-2 rounded-full"><X size={18} /></button>
         </div>

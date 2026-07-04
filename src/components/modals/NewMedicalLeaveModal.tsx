@@ -5,10 +5,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { medicalLeaveService } from '@/services/api/medicalLeaves';
+import { toDateInputValue } from '@/utils/statusHelpers';
+import type { MedicalLeave } from '@/types';
 
 interface NewMedicalLeaveModalProps {
   patientId: number;
   patientName: string;
+  leave?: MedicalLeave;
   onClose: () => void;
 }
 
@@ -25,15 +28,24 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function NewMedicalLeaveModal({ patientId, patientName, onClose }: NewMedicalLeaveModalProps) {
+export default function NewMedicalLeaveModal({ patientId, patientName, leave, onClose }: NewMedicalLeaveModalProps) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { leave_type: 'enfermedad_general' },
+    defaultValues: leave ? {
+      issuing_doctor_name_free: leave.issuing_doctor_name_free ?? '',
+      start_date: toDateInputValue(leave.start_date),
+      end_date: toDateInputValue(leave.end_date),
+      diagnosis: leave.diagnosis ?? '',
+      diagnosis_code: leave.diagnosis_code ?? '',
+      leave_type: leave.leave_type,
+      ips_issued: leave.ips_issued ?? '',
+      notes: leave.notes ?? '',
+    } : { leave_type: 'enfermedad_general' },
   });
 
   const mutation = useMutation({
-    mutationFn: (v: FormValues) => medicalLeaveService.create({ ...v, user_id: patientId }),
+    mutationFn: (v: FormValues) => (leave ? medicalLeaveService.update(leave.id, v) : medicalLeaveService.create({ ...v, user_id: patientId })),
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['medical-leaves'] });
@@ -48,7 +60,9 @@ export default function NewMedicalLeaveModal({ patientId, patientName, onClose }
       <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)]">
           <div>
-            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>Nueva incapacidad</h2>
+            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
+              {leave ? 'Editar incapacidad' : 'Nueva incapacidad'}
+            </h2>
             <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
           </div>
           <button onClick={onClose} className="btn btn--ghost p-2 rounded-full"><X size={18} /></button>
@@ -104,7 +118,7 @@ export default function NewMedicalLeaveModal({ patientId, patientName, onClose }
           </div>
 
           <button type="submit" disabled={mutation.isPending} className="btn btn--primary w-full py-3" style={{ borderRadius: '10px' }}>
-            {mutation.isPending ? 'Guardando...' : 'Registrar incapacidad'}
+            {mutation.isPending ? 'Guardando...' : leave ? 'Guardar cambios' : 'Registrar incapacidad'}
           </button>
         </form>
       </div>

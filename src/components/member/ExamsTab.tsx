@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, FlaskConical } from 'lucide-react';
+import { Plus, FlaskConical, Paperclip } from 'lucide-react';
 import type { Exam } from '@/types';
 import { examService } from '@/services/api/exams';
 import { getStatusBadge, formatDate, formatDateTime } from '@/utils/statusHelpers';
 import NewExamModal from '@/components/modals/NewExamModal';
 import ChangeExamStatusModal from '@/components/modals/ChangeExamStatusModal';
+import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
+import DetailModal from '@/components/modals/DetailModal';
+
+const EXAM_TYPE_LABEL: Record<string, string> = { laboratorio: 'Laboratorio', imagen: 'Imagen', especializado: 'Especializado', otro: 'Otro' };
 
 interface ExamsTabProps {
   patientId: number;
@@ -15,6 +19,9 @@ interface ExamsTabProps {
 export default function ExamsTab({ patientId, patientName }: ExamsTabProps) {
   const [showNew, setShowNew] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Exam | null>(null);
+  const [attachTarget, setAttachTarget] = useState<Exam | null>(null);
+  const [viewTarget, setViewTarget] = useState<Exam | null>(null);
+  const [editTarget, setEditTarget] = useState<Exam | null>(null);
 
   const { data: exams, isLoading } = useQuery({
     queryKey: ['exams', { userId: patientId }],
@@ -37,7 +44,9 @@ export default function ExamsTab({ patientId, patientName }: ExamsTabProps) {
         <div>
           <h3 className="text-sm font-semibold text-[var(--color-alert-green)] mb-2">✅ Resultados disponibles</h3>
           <div className="grid gap-3 sm:grid-cols-2">
-            {withResults.map((e) => <ExamCard key={e.id} exam={e} onChangeStatus={setStatusTarget} />)}
+            {withResults.map((e) => (
+              <ExamCard key={e.id} exam={e} onChangeStatus={setStatusTarget} onAttachDocument={setAttachTarget} onView={setViewTarget} />
+            ))}
           </div>
         </div>
       )}
@@ -53,22 +62,65 @@ export default function ExamsTab({ patientId, patientName }: ExamsTabProps) {
 
       {others.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
-          {others.map((e) => <ExamCard key={e.id} exam={e} onChangeStatus={setStatusTarget} />)}
+          {others.map((e) => (
+            <ExamCard key={e.id} exam={e} onChangeStatus={setStatusTarget} onAttachDocument={setAttachTarget} onView={setViewTarget} />
+          ))}
         </div>
       )}
 
       {showNew && <NewExamModal patientId={patientId} patientName={patientName} onClose={() => setShowNew(false)} />}
       {statusTarget && <ChangeExamStatusModal exam={statusTarget} onClose={() => setStatusTarget(null)} />}
+
+      {editTarget && (
+        <NewExamModal patientId={patientId} patientName={patientName} exam={editTarget} onClose={() => setEditTarget(null)} />
+      )}
+
+      {viewTarget && (
+        <DetailModal
+          title={viewTarget.name}
+          subtitle={`Para ${patientName}`}
+          badge={getStatusBadge('exam', viewTarget.status)}
+          relatedType="exam"
+          relatedId={viewTarget.id}
+          onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
+          onClose={() => setViewTarget(null)}
+          fields={[
+            { label: 'Tipo', value: EXAM_TYPE_LABEL[viewTarget.exam_type] },
+            { label: 'Urgencia', value: viewTarget.urgency === 'urgente' ? 'Urgente' : 'Rutina' },
+            { label: 'Laboratorio / centro', value: viewTarget.lab_or_center },
+            { label: 'Fecha agendada', value: viewTarget.scheduled_date ? formatDateTime(viewTarget.scheduled_date) : null },
+            { label: 'Fecha de realización', value: viewTarget.performed_date ? formatDate(viewTarget.performed_date) : null },
+            { label: 'Fecha de resultado', value: viewTarget.result_date ? formatDate(viewTarget.result_date) : null },
+            { label: 'Resultado', value: viewTarget.result_summary, fullWidth: true },
+            { label: 'Negado', value: viewTarget.denied_reason, fullWidth: true },
+            { label: 'Cancelado', value: viewTarget.cancelled_reason, fullWidth: true },
+            { label: 'Notas', value: viewTarget.notes, fullWidth: true },
+          ]}
+        />
+      )}
+
+      {attachTarget && (
+        <UploadDocumentModal
+          patientId={patientId}
+          patientName={patientName}
+          relatedType="exam"
+          relatedId={attachTarget.id}
+          contextLabel={attachTarget.name}
+          onClose={() => setAttachTarget(null)}
+        />
+      )}
     </div>
   );
 }
 
-function ExamCard({ exam, onChangeStatus }: { exam: Exam; onChangeStatus: (e: Exam) => void }) {
+function ExamCard({
+  exam, onChangeStatus, onAttachDocument, onView,
+}: { exam: Exam; onChangeStatus: (e: Exam) => void; onAttachDocument: (e: Exam) => void; onView: (e: Exam) => void }) {
   const badge = getStatusBadge('exam', exam.status);
   const isFinal = ['entregado_medico', 'cancelado'].includes(exam.status);
 
   return (
-    <div className="card p-4 pl-5">
+    <div className="card p-4 pl-5 cursor-pointer" onClick={() => onView(exam)}>
       <div className={`traffic-bar traffic-bar--${exam.urgency === 'urgente' ? 'red' : 'grey'}`} />
       <div className="flex items-center gap-2 mb-1.5">
         <span className={`badge ${badge.cssClass}`}>{badge.label}</span>
@@ -85,11 +137,24 @@ function ExamCard({ exam, onChangeStatus }: { exam: Exam; onChangeStatus: (e: Ex
       {exam.status === 'negado' && exam.denied_reason && (
         <p className="text-xs mt-1.5 text-[var(--color-alert-red)]">Negado: {exam.denied_reason}</p>
       )}
-      {!isFinal && (
-        <button onClick={() => onChangeStatus(exam)} className="btn btn--secondary text-xs py-1.5 px-3 mt-3" style={{ minHeight: 'auto' }}>
-          Cambiar estado
+      <div className="flex flex-wrap gap-2 mt-3">
+        {!isFinal && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeStatus(exam); }}
+            className="btn btn--secondary text-xs py-1.5 px-3"
+            style={{ minHeight: 'auto' }}
+          >
+            Cambiar estado
+          </button>
+        )}
+        <button
+          onClick={(e) => { e.stopPropagation(); onAttachDocument(exam); }}
+          className="btn btn--ghost text-xs py-1.5 px-3 gap-1"
+          style={{ minHeight: 'auto' }}
+        >
+          <Paperclip size={13} /> Adjuntar documento
         </button>
-      )}
+      </div>
       {exam.performed_date && (
         <p className="text-xs text-gray-400 mt-2">Realizado: {formatDate(exam.performed_date)}</p>
       )}

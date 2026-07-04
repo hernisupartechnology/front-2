@@ -24,7 +24,7 @@ import Settings from '@/pages/Settings';
  * Guarda de ruta privada — redirige al login si no hay sesión.
  */
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
+  const isAuthenticated = useAuthStore((s) => !!s.token && !!s.user);
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
@@ -32,7 +32,7 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
  * Guarda de ruta pública — redirige al dashboard si ya hay sesión activa.
  */
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)();
+  const isAuthenticated = useAuthStore((s) => !!s.token && !!s.user);
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <>{children}</>;
 }
 

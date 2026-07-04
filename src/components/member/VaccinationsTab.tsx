@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Syringe } from 'lucide-react';
+import { Plus, Syringe, Paperclip } from 'lucide-react';
+import type { Vaccination } from '@/types';
 import { vaccinationService } from '@/services/api/vaccinations';
 import { formatDate } from '@/utils/statusHelpers';
 import NewVaccinationModal from '@/components/modals/NewVaccinationModal';
+import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
+import DetailModal from '@/components/modals/DetailModal';
 
 export default function VaccinationsTab({ patientId, patientName }: { patientId: number; patientName: string }) {
   const [showNew, setShowNew] = useState(false);
+  const [attachTarget, setAttachTarget] = useState<Vaccination | null>(null);
+  const [viewTarget, setViewTarget] = useState<Vaccination | null>(null);
+  const [editTarget, setEditTarget] = useState<Vaccination | null>(null);
 
   const { data: vaccinations, isLoading } = useQuery({
     queryKey: ['vaccinations', { userId: patientId }],
@@ -42,17 +48,27 @@ export default function VaccinationsTab({ patientId, patientName }: { patientId:
                 <th className="p-3 font-medium">Fecha</th>
                 <th className="p-3 font-medium">Lugar</th>
                 <th className="p-3 font-medium">Próxima dosis</th>
+                <th className="p-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {vaccinations.map((v) => (
-                <tr key={v.id} className="border-b border-[rgba(27,94,32,.04)] last:border-0">
+                <tr key={v.id} className="border-b border-[rgba(27,94,32,.04)] last:border-0 cursor-pointer hover:bg-[var(--color-primary-100)]/30" onClick={() => setViewTarget(v)}>
                   <td className="p-3 font-medium text-gray-700 dark:text-gray-200">{v.vaccine_name}</td>
                   <td className="p-3 text-gray-500">{v.dose_number ?? '—'}</td>
                   <td className="p-3 text-gray-500">{formatDate(v.application_date)}</td>
                   <td className="p-3 text-gray-500">{v.ips_or_center ?? '—'}</td>
                   <td className="p-3">
                     <NextDoseBadge date={v.next_dose_date} daysUntil={v.days_until_next_dose} />
+                  </td>
+                  <td className="p-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setAttachTarget(v); }}
+                      className="btn btn--ghost text-xs py-1.5 px-3 gap-1"
+                      style={{ minHeight: 'auto' }}
+                    >
+                      <Paperclip size={13} /> Adjuntar
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -64,15 +80,57 @@ export default function VaccinationsTab({ patientId, patientName }: { patientId:
       {/* Cards en móvil */}
       <div className="grid gap-3 sm:hidden">
         {vaccinations?.map((v) => (
-          <div key={v.id} className="card p-4">
+          <div key={v.id} className="card p-4 cursor-pointer" onClick={() => setViewTarget(v)}>
             <h3 className="font-semibold text-gray-800 dark:text-gray-100">{v.vaccine_name} {v.dose_number && `· ${v.dose_number}`}</h3>
             <p className="text-sm text-gray-500">{formatDate(v.application_date)}{v.ips_or_center && ` · ${v.ips_or_center}`}</p>
             {v.next_dose_date && <div className="mt-2"><NextDoseBadge date={v.next_dose_date} daysUntil={v.days_until_next_dose} /></div>}
+            <button
+              onClick={(e) => { e.stopPropagation(); setAttachTarget(v); }}
+              className="btn btn--ghost text-xs py-1.5 px-3 gap-1 mt-2"
+              style={{ minHeight: 'auto' }}
+            >
+              <Paperclip size={13} /> Adjuntar documento
+            </button>
           </div>
         ))}
       </div>
 
       {showNew && <NewVaccinationModal patientId={patientId} patientName={patientName} onClose={() => setShowNew(false)} />}
+
+      {editTarget && (
+        <NewVaccinationModal patientId={patientId} patientName={patientName} vaccination={editTarget} onClose={() => setEditTarget(null)} />
+      )}
+
+      {viewTarget && (
+        <DetailModal
+          title={viewTarget.vaccine_name}
+          subtitle={`Para ${patientName}`}
+          relatedType="vaccination"
+          relatedId={viewTarget.id}
+          onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
+          onClose={() => setViewTarget(null)}
+          fields={[
+            { label: 'Dosis', value: viewTarget.dose_number },
+            { label: 'Fecha de aplicación', value: formatDate(viewTarget.application_date) },
+            { label: 'Aplicada por', value: viewTarget.applied_by },
+            { label: 'Número de lote', value: viewTarget.lot_number },
+            { label: 'IPS / centro', value: viewTarget.ips_or_center },
+            { label: 'Próxima dosis', value: viewTarget.next_dose_date ? formatDate(viewTarget.next_dose_date) : null },
+            { label: 'Notas', value: viewTarget.notes, fullWidth: true },
+          ]}
+        />
+      )}
+
+      {attachTarget && (
+        <UploadDocumentModal
+          patientId={patientId}
+          patientName={patientName}
+          relatedType="vaccination"
+          relatedId={attachTarget.id}
+          contextLabel={attachTarget.vaccine_name}
+          onClose={() => setAttachTarget(null)}
+        />
+      )}
     </div>
   );
 }

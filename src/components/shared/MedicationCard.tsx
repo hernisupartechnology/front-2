@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronRight, Paperclip, RefreshCw } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Medication } from '@/types';
@@ -10,9 +10,11 @@ import { medicationService } from '@/services/api/medications';
 interface MedicationCardProps {
   medication: Medication;
   onChangeStatus?: (medication: Medication) => void;
+  onAttachDocument?: (medication: Medication) => void;
+  onView?: (medication: Medication) => void;
 }
 
-export default function MedicationCard({ medication, onChangeStatus }: MedicationCardProps) {
+export default function MedicationCard({ medication, onChangeStatus, onAttachDocument, onView }: MedicationCardProps) {
   const [showRenewals, setShowRenewals] = useState(false);
   const badge = getStatusBadge('medication', medication.status);
   const renewalTl = getMedicationRenewalTrafficLight(medication);
@@ -36,7 +38,7 @@ export default function MedicationCard({ medication, onChangeStatus }: Medicatio
   });
 
   return (
-    <div className="card p-4 pl-5 animate-fade-in">
+    <div className={`card p-4 pl-5 animate-fade-in ${onView ? 'cursor-pointer' : ''}`} onClick={() => onView?.(medication)}>
       <div className={`traffic-bar traffic-bar--${renewalTl?.level ?? 'grey'}`} />
 
       <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -83,13 +85,17 @@ export default function MedicationCard({ medication, onChangeStatus }: Medicatio
 
       <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[rgba(27,94,32,.08)] dark:border-[rgba(165,214,167,.08)]">
         {!isFinal && onChangeStatus && (
-          <button onClick={() => onChangeStatus(medication)} className="btn btn--secondary text-xs py-1.5 px-3" style={{ minHeight: 'auto' }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); onChangeStatus(medication); }}
+            className="btn btn--secondary text-xs py-1.5 px-3"
+            style={{ minHeight: 'auto' }}
+          >
             Cambiar estado
           </button>
         )}
         {medication.is_recurring && renewalTl && ['red', 'yellow'].includes(renewalTl.level) && (
           <button
-            onClick={() => renewMutation.mutate()}
+            onClick={(e) => { e.stopPropagation(); renewMutation.mutate(); }}
             disabled={renewMutation.isPending}
             className="btn text-xs py-1.5 px-3"
             style={{ minHeight: 'auto', background: 'var(--color-alert-yellow)', color: '#4a3200' }}
@@ -97,9 +103,18 @@ export default function MedicationCard({ medication, onChangeStatus }: Medicatio
             Iniciar renovación
           </button>
         )}
+        {onAttachDocument && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onAttachDocument(medication); }}
+            className="btn btn--ghost text-xs py-1.5 px-3 gap-1"
+            style={{ minHeight: 'auto' }}
+          >
+            <Paperclip size={13} /> Adjuntar documento
+          </button>
+        )}
         {(medication.renewals?.length ?? 0) > 0 || medication.is_recurring ? (
           <button
-            onClick={() => setShowRenewals(!showRenewals)}
+            onClick={(e) => { e.stopPropagation(); setShowRenewals(!showRenewals); }}
             className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 ml-auto"
           >
             {showRenewals ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -109,7 +124,7 @@ export default function MedicationCard({ medication, onChangeStatus }: Medicatio
       </div>
 
       {showRenewals && (
-        <div className="mt-2 pt-2 border-t border-[rgba(27,94,32,.06)]">
+        <div className="mt-2 pt-2 border-t border-[rgba(27,94,32,.06)]" onClick={(e) => e.stopPropagation()}>
           {!renewals || renewals.length === 0 ? (
             <p className="text-xs text-gray-400 py-1">Sin renovaciones registradas.</p>
           ) : (

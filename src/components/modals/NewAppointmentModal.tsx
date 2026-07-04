@@ -6,11 +6,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, ClipboardList, CalendarPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { appointmentService } from '@/services/api/appointments';
-import type { RecurrenceType } from '@/types';
+import { toDateTimeInputValue } from '@/utils/statusHelpers';
+import type { Appointment, RecurrenceType } from '@/types';
 
 interface NewAppointmentModalProps {
   patientId: number;
   patientName: string;
+  appointment?: Appointment;
   onClose: () => void;
 }
 
@@ -54,17 +56,38 @@ type Step = 'choose' | 'need' | 'scheduled';
  * Modal "Nueva cita / Necesidad" — Paso 1: elegir si es una necesidad sin
  * agendar (Opción A) o una cita que ya tiene fecha (Opción B).
  */
-export default function NewAppointmentModal({ patientId, patientName, onClose }: NewAppointmentModalProps) {
-  const [step, setStep] = useState<Step>('choose');
+export default function NewAppointmentModal({ patientId, patientName, appointment, onClose }: NewAppointmentModalProps) {
+  const [step, setStep] = useState<Step>(!appointment ? 'choose' : appointment.is_need ? 'need' : 'scheduled');
   const queryClient = useQueryClient();
 
   const needForm = useForm<z.infer<typeof needSchema>>({
     resolver: zodResolver(needSchema),
-    defaultValues: { need_urgency: 'rutina', is_recurring: false },
+    defaultValues: appointment ? {
+      specialty: appointment.specialty,
+      doctor_name_free: appointment.doctor_name_free ?? '',
+      need_reason: appointment.need_reason ?? '',
+      need_urgency: appointment.need_urgency,
+      max_days_to_schedule: String(appointment.max_days_to_schedule),
+      alert_days_before_scheduling: String(appointment.alert_days_before_scheduling),
+      is_recurring: appointment.is_recurring,
+      recurrence_type: appointment.recurrence_type ?? undefined,
+      notes: appointment.notes ?? '',
+    } : { need_urgency: 'rutina', is_recurring: false },
   });
   const scheduledForm = useForm<z.infer<typeof scheduledSchema>>({
     resolver: zodResolver(scheduledSchema),
-    defaultValues: { appointment_type: 'consulta', is_recurring: false },
+    defaultValues: appointment ? {
+      specialty: appointment.specialty,
+      doctor_name_free: appointment.doctor_name_free ?? '',
+      appointment_date: toDateTimeInputValue(appointment.appointment_date),
+      appointment_type: appointment.appointment_type,
+      ips: appointment.ips ?? '',
+      address: appointment.address ?? '',
+      reason: appointment.reason ?? '',
+      is_recurring: appointment.is_recurring,
+      recurrence_type: appointment.recurrence_type ?? undefined,
+      notes: appointment.notes ?? '',
+    } : { appointment_type: 'consulta', is_recurring: false },
   });
 
   const onSuccess = (message: string) => {
@@ -78,38 +101,44 @@ export default function NewAppointmentModal({ patientId, patientName, onClose }:
     toast.error(error.response?.data?.message ?? 'No se pudo guardar la cita.');
 
   const needMutation = useMutation({
-    mutationFn: (v: z.infer<typeof needSchema>) => appointmentService.create({
-      user_id: patientId,
-      is_need: true,
-      specialty: v.specialty,
-      doctor_name_free: v.doctor_name_free || undefined,
-      need_reason: v.need_reason,
-      need_urgency: v.need_urgency,
-      max_days_to_schedule: v.max_days_to_schedule ? Number(v.max_days_to_schedule) : undefined,
-      alert_days_before_scheduling: v.alert_days_before_scheduling ? Number(v.alert_days_before_scheduling) : undefined,
-      is_recurring: v.is_recurring,
-      recurrence_type: v.is_recurring ? (v.recurrence_type as RecurrenceType) : undefined,
-      notes: v.notes,
-    }),
+    mutationFn: (v: z.infer<typeof needSchema>) => {
+      const payload = {
+        specialty: v.specialty,
+        doctor_name_free: v.doctor_name_free || undefined,
+        need_reason: v.need_reason,
+        need_urgency: v.need_urgency,
+        max_days_to_schedule: v.max_days_to_schedule ? Number(v.max_days_to_schedule) : undefined,
+        alert_days_before_scheduling: v.alert_days_before_scheduling ? Number(v.alert_days_before_scheduling) : undefined,
+        is_recurring: v.is_recurring,
+        recurrence_type: v.is_recurring ? (v.recurrence_type as RecurrenceType) : undefined,
+        notes: v.notes,
+      };
+      return appointment
+        ? appointmentService.update(appointment.id, payload)
+        : appointmentService.create({ ...payload, user_id: patientId, is_need: true });
+    },
     onSuccess: (data) => onSuccess(data.message),
     onError,
   });
 
   const scheduledMutation = useMutation({
-    mutationFn: (v: z.infer<typeof scheduledSchema>) => appointmentService.create({
-      user_id: patientId,
-      is_need: false,
-      specialty: v.specialty,
-      doctor_name_free: v.doctor_name_free || undefined,
-      appointment_date: v.appointment_date,
-      appointment_type: v.appointment_type,
-      ips: v.ips,
-      address: v.address,
-      reason: v.reason,
-      is_recurring: v.is_recurring,
-      recurrence_type: v.is_recurring ? (v.recurrence_type as RecurrenceType) : undefined,
-      notes: v.notes,
-    }),
+    mutationFn: (v: z.infer<typeof scheduledSchema>) => {
+      const payload = {
+        specialty: v.specialty,
+        doctor_name_free: v.doctor_name_free || undefined,
+        appointment_date: v.appointment_date,
+        appointment_type: v.appointment_type,
+        ips: v.ips,
+        address: v.address,
+        reason: v.reason,
+        is_recurring: v.is_recurring,
+        recurrence_type: v.is_recurring ? (v.recurrence_type as RecurrenceType) : undefined,
+        notes: v.notes,
+      };
+      return appointment
+        ? appointmentService.update(appointment.id, payload)
+        : appointmentService.create({ ...payload, user_id: patientId, is_need: false });
+    },
     onSuccess: (data) => onSuccess(data.message),
     onError,
   });
@@ -120,7 +149,7 @@ export default function NewAppointmentModal({ patientId, patientName, onClose }:
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)] sticky top-0 bg-[var(--color-surface)] dark:bg-[#1a2e1b] z-10">
           <div>
             <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
-              Nueva cita / Necesidad
+              {appointment ? 'Editar cita / necesidad' : 'Nueva cita / Necesidad'}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
           </div>
@@ -204,7 +233,12 @@ export default function NewAppointmentModal({ patientId, patientName, onClose }:
                 <textarea className="input" rows={2} {...needForm.register('notes')} />
               </div>
 
-              <ModalActions onBack={() => setStep('choose')} pending={needMutation.isPending} label="Registrar necesidad" />
+              <ModalActions
+                onBack={appointment ? onClose : () => setStep('choose')}
+                backLabel={appointment ? 'Cancelar' : 'Volver'}
+                pending={needMutation.isPending}
+                label={appointment ? 'Guardar cambios' : 'Registrar necesidad'}
+              />
             </form>
           )}
 
@@ -255,7 +289,12 @@ export default function NewAppointmentModal({ patientId, patientName, onClose }:
                 <textarea className="input" rows={2} {...scheduledForm.register('notes')} />
               </div>
 
-              <ModalActions onBack={() => setStep('choose')} pending={scheduledMutation.isPending} label="Registrar cita" />
+              <ModalActions
+                onBack={appointment ? onClose : () => setStep('choose')}
+                backLabel={appointment ? 'Cancelar' : 'Volver'}
+                pending={scheduledMutation.isPending}
+                label={appointment ? 'Guardar cambios' : 'Registrar cita'}
+              />
             </form>
           )}
         </div>
@@ -292,10 +331,12 @@ function RecurrenceFields<T extends RecurringFormFields>({ register, watch }: {
   );
 }
 
-function ModalActions({ onBack, pending, label }: { onBack: () => void; pending: boolean; label: string }) {
+function ModalActions({ onBack, pending, label, backLabel = 'Volver' }: {
+  onBack: () => void; pending: boolean; label: string; backLabel?: string;
+}) {
   return (
     <div className="flex gap-2 pt-2">
-      <button type="button" onClick={onBack} className="btn btn--ghost flex-1">Volver</button>
+      <button type="button" onClick={onBack} className="btn btn--ghost flex-1">{backLabel}</button>
       <button type="submit" disabled={pending} className="btn btn--primary flex-1">
         {pending ? 'Guardando...' : label}
       </button>

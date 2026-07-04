@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Stethoscope } from 'lucide-react';
+import { Plus, Stethoscope, Paperclip } from 'lucide-react';
 import type { Referral } from '@/types';
 import { referralService } from '@/services/api/referrals';
-import { getStatusBadge } from '@/utils/statusHelpers';
+import { getStatusBadge, formatDate } from '@/utils/statusHelpers';
 import NewReferralModal from '@/components/modals/NewReferralModal';
 import ChangeReferralStatusModal from '@/components/modals/ChangeReferralStatusModal';
+import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
+import DetailModal from '@/components/modals/DetailModal';
+
+const URGENCY_LABEL: Record<string, string> = { rutina: 'Rutina', prioritaria: 'Prioritaria', urgente: 'Urgente' };
 
 interface ReferralsTabProps {
   patientId: number;
@@ -15,6 +19,9 @@ interface ReferralsTabProps {
 export default function ReferralsTab({ patientId, patientName }: ReferralsTabProps) {
   const [showNew, setShowNew] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Referral | null>(null);
+  const [attachTarget, setAttachTarget] = useState<Referral | null>(null);
+  const [viewTarget, setViewTarget] = useState<Referral | null>(null);
+  const [editTarget, setEditTarget] = useState<Referral | null>(null);
 
   const { data: referrals, isLoading } = useQuery({
     queryKey: ['referrals', { userId: patientId }],
@@ -46,7 +53,7 @@ export default function ReferralsTab({ patientId, patientName }: ReferralsTabPro
           const level = r.traffic_light?.level ?? 'grey';
 
           return (
-            <div key={r.id} className="card p-4 pl-5">
+            <div key={r.id} className="card p-4 pl-5 cursor-pointer" onClick={() => setViewTarget(r)}>
               <div className={`traffic-bar traffic-bar--${level}`} />
               <span className={`badge ${badge.cssClass}`}>{badge.label}</span>
               <h3 className="font-semibold text-gray-800 dark:text-gray-100 mt-1.5">{r.specialty}</h3>
@@ -59,11 +66,24 @@ export default function ReferralsTab({ patientId, patientName }: ReferralsTabPro
               {r.status === 'negada' && r.denied_reason && (
                 <p className="text-xs mt-1.5 text-[var(--color-alert-red)]">Negada: {r.denied_reason}</p>
               )}
-              {!isFinal && (
-                <button onClick={() => setStatusTarget(r)} className="btn btn--secondary text-xs py-1.5 px-3 mt-3" style={{ minHeight: 'auto' }}>
-                  Cambiar estado
+              <div className="flex flex-wrap gap-2 mt-3">
+                {!isFinal && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setStatusTarget(r); }}
+                    className="btn btn--secondary text-xs py-1.5 px-3"
+                    style={{ minHeight: 'auto' }}
+                  >
+                    Cambiar estado
+                  </button>
+                )}
+                <button
+                  onClick={(e) => { e.stopPropagation(); setAttachTarget(r); }}
+                  className="btn btn--ghost text-xs py-1.5 px-3 gap-1"
+                  style={{ minHeight: 'auto' }}
+                >
+                  <Paperclip size={13} /> Adjuntar documento
                 </button>
-              )}
+              </div>
             </div>
           );
         })}
@@ -71,6 +91,43 @@ export default function ReferralsTab({ patientId, patientName }: ReferralsTabPro
 
       {showNew && <NewReferralModal patientId={patientId} patientName={patientName} onClose={() => setShowNew(false)} />}
       {statusTarget && <ChangeReferralStatusModal referral={statusTarget} onClose={() => setStatusTarget(null)} />}
+
+      {editTarget && (
+        <NewReferralModal patientId={patientId} patientName={patientName} referral={editTarget} onClose={() => setEditTarget(null)} />
+      )}
+
+      {viewTarget && (
+        <DetailModal
+          title={viewTarget.specialty}
+          subtitle={`Para ${patientName}`}
+          badge={getStatusBadge('referral', viewTarget.status)}
+          relatedType="referral"
+          relatedId={viewTarget.id}
+          onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
+          onClose={() => setViewTarget(null)}
+          fields={[
+            { label: 'Urgencia', value: URGENCY_LABEL[viewTarget.urgency] },
+            { label: 'Médico que remite', value: viewTarget.referring_doctor?.name },
+            { label: 'Médico al que se remite', value: viewTarget.referred_doctor?.name },
+            { label: 'Número de autorización', value: viewTarget.authorization_number },
+            { label: 'Vence autorización', value: viewTarget.authorization_expiry_date ? formatDate(viewTarget.authorization_expiry_date) : null },
+            { label: 'Motivo', value: viewTarget.reason, fullWidth: true },
+            { label: 'Negada', value: viewTarget.denied_reason, fullWidth: true },
+            { label: 'Notas', value: viewTarget.notes, fullWidth: true },
+          ]}
+        />
+      )}
+
+      {attachTarget && (
+        <UploadDocumentModal
+          patientId={patientId}
+          patientName={patientName}
+          relatedType="referral"
+          relatedId={attachTarget.id}
+          contextLabel={attachTarget.specialty}
+          onClose={() => setAttachTarget(null)}
+        />
+      )}
     </div>
   );
 }

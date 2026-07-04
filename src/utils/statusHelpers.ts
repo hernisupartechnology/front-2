@@ -229,6 +229,21 @@ export function formatDate(dateStr: string | null): string {
   return date.toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+/** Convierte una fecha ISO del backend al valor que espera un <input type="date"> (YYYY-MM-DD). */
+export function toDateInputValue(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  return dateStr.slice(0, 10);
+}
+
+/** Convierte una fecha ISO del backend al valor que espera un <input type="datetime-local"> (YYYY-MM-DDTHH:mm), en hora local. */
+export function toDateTimeInputValue(dateStr: string | null | undefined): string {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 /** Formatea fecha y hora (ej: "3 de julio de 2026, 10:00 a.m."). */
 export function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return '—';

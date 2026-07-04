@@ -10,7 +10,15 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'icons/*.png'],
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
+      injectManifest: {
+        // El JS de la app suele pesar >2MB con Recharts/PhpSpreadsheet-sized deps;
+        // el default de workbox (2MB) rechaza precachear el bundle principal.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
+      includeAssets: ['favicon.svg', 'icons/*.svg'],
       manifest: {
         name: 'UparVital',
         short_name: 'UparVital',
@@ -19,37 +27,19 @@ export default defineConfig({
         background_color: '#F1F8E9',
         display: 'standalone',
         start_url: '/dashboard',
+        // TODO producción: generar los PNG reales (192/512/maskable) con
+        // `npx pwa-asset-generator public/icons/source.svg public/icons`
+        // (ver README) y reemplazar estas entradas — el SVG funciona para
+        // desarrollo pero los PNG dan mejor compatibilidad de "maskable" en Android.
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          {
-            src: '/icons/icon-512-maskable.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable',
-          },
+          { src: '/icons/source.svg', sizes: '192x192', type: 'image/svg+xml' },
+          { src: '/icons/source.svg', sizes: '512x512', type: 'image/svg+xml' },
+          { src: '/icons/source.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
         ],
       },
-      workbox: {
-        runtimeCaching: [
-          {
-            urlPattern: /\/api\/dashboard/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-dashboard',
-              expiration: { maxAgeSeconds: 300 },
-            },
-          },
-          {
-            urlPattern: /\/api\/dashboard\/alerts/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-alerts',
-              expiration: { maxAgeSeconds: 60 },
-            },
-          },
-        ],
-      },
+      // Nota: `workbox.runtimeCaching` solo aplica a la estrategia `generateSW`.
+      // Con `injectManifest` el cacheo en runtime (si se necesita) se define
+      // a mano dentro de src/sw.ts usando workbox-routing/workbox-strategies.
     }),
   ],
   resolve: {

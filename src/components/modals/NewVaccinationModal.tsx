@@ -5,10 +5,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { vaccinationService } from '@/services/api/vaccinations';
+import { toDateInputValue } from '@/utils/statusHelpers';
+import type { Vaccination } from '@/types';
 
 interface NewVaccinationModalProps {
   patientId: number;
   patientName: string;
+  vaccination?: Vaccination;
   onClose: () => void;
 }
 
@@ -25,12 +28,24 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function NewVaccinationModal({ patientId, patientName, onClose }: NewVaccinationModalProps) {
+export default function NewVaccinationModal({ patientId, patientName, vaccination, onClose }: NewVaccinationModalProps) {
   const queryClient = useQueryClient();
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: vaccination ? {
+      vaccine_name: vaccination.vaccine_name,
+      dose_number: vaccination.dose_number ?? '',
+      application_date: toDateInputValue(vaccination.application_date),
+      applied_by: vaccination.applied_by ?? '',
+      lot_number: vaccination.lot_number ?? '',
+      ips_or_center: vaccination.ips_or_center ?? '',
+      next_dose_date: toDateInputValue(vaccination.next_dose_date),
+      notes: vaccination.notes ?? '',
+    } : undefined,
+  });
 
   const mutation = useMutation({
-    mutationFn: (v: FormValues) => vaccinationService.create({ ...v, user_id: patientId }),
+    mutationFn: (v: FormValues) => (vaccination ? vaccinationService.update(vaccination.id, v) : vaccinationService.create({ ...v, user_id: patientId })),
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['vaccinations'] });
@@ -45,7 +60,9 @@ export default function NewVaccinationModal({ patientId, patientName, onClose }:
       <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)]">
           <div>
-            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>Registrar vacuna</h2>
+            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
+              {vaccination ? 'Editar vacuna' : 'Registrar vacuna'}
+            </h2>
             <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
           </div>
           <button onClick={onClose} className="btn btn--ghost p-2 rounded-full"><X size={18} /></button>
@@ -96,7 +113,7 @@ export default function NewVaccinationModal({ patientId, patientName, onClose }:
           </div>
 
           <button type="submit" disabled={mutation.isPending} className="btn btn--primary w-full py-3" style={{ borderRadius: '10px' }}>
-            {mutation.isPending ? 'Guardando...' : 'Registrar vacuna'}
+            {mutation.isPending ? 'Guardando...' : vaccination ? 'Guardar cambios' : 'Registrar vacuna'}
           </button>
         </form>
       </div>

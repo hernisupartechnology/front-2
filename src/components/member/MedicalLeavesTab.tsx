@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, FileText } from 'lucide-react';
+import { Plus, FileText, Paperclip } from 'lucide-react';
+import type { MedicalLeave } from '@/types';
 import { medicalLeaveService } from '@/services/api/medicalLeaves';
 import { formatDate } from '@/utils/statusHelpers';
 import NewMedicalLeaveModal from '@/components/modals/NewMedicalLeaveModal';
+import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
+import DetailModal from '@/components/modals/DetailModal';
 
 const LEAVE_TYPE_LABEL: Record<string, string> = {
   enfermedad_general: 'Enfermedad general',
@@ -15,6 +18,9 @@ const LEAVE_TYPE_LABEL: Record<string, string> = {
 
 export default function MedicalLeavesTab({ patientId, patientName }: { patientId: number; patientName: string }) {
   const [showNew, setShowNew] = useState(false);
+  const [attachTarget, setAttachTarget] = useState<MedicalLeave | null>(null);
+  const [viewTarget, setViewTarget] = useState<MedicalLeave | null>(null);
+  const [editTarget, setEditTarget] = useState<MedicalLeave | null>(null);
 
   const { data: leaves, isLoading } = useQuery({
     queryKey: ['medical-leaves', { userId: patientId }],
@@ -41,7 +47,7 @@ export default function MedicalLeavesTab({ patientId, patientName }: { patientId
 
       <div className="space-y-3">
         {leaves?.map((leave) => (
-          <div key={leave.id} className="card p-4 pl-5">
+          <div key={leave.id} className="card p-4 pl-5 cursor-pointer" onClick={() => setViewTarget(leave)}>
             <div className="traffic-bar traffic-bar--grey" />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -62,11 +68,52 @@ export default function MedicalLeavesTab({ patientId, patientName }: { patientId
                 {leave.issuing_doctor_name_free}{leave.issuing_doctor_name_free && leave.ips_issued && ' · '}{leave.ips_issued}
               </p>
             )}
+            <button
+              onClick={(e) => { e.stopPropagation(); setAttachTarget(leave); }}
+              className="btn btn--ghost text-xs py-1.5 px-3 gap-1 mt-3"
+              style={{ minHeight: 'auto' }}
+            >
+              <Paperclip size={13} /> Adjuntar documento
+            </button>
           </div>
         ))}
       </div>
 
       {showNew && <NewMedicalLeaveModal patientId={patientId} patientName={patientName} onClose={() => setShowNew(false)} />}
+
+      {editTarget && (
+        <NewMedicalLeaveModal patientId={patientId} patientName={patientName} leave={editTarget} onClose={() => setEditTarget(null)} />
+      )}
+
+      {viewTarget && (
+        <DetailModal
+          title={`${formatDate(viewTarget.start_date)} — ${formatDate(viewTarget.end_date)}`}
+          subtitle={`Para ${patientName} · ${viewTarget.total_days} día${viewTarget.total_days === 1 ? '' : 's'}`}
+          relatedType="medical_leave"
+          relatedId={viewTarget.id}
+          onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
+          onClose={() => setViewTarget(null)}
+          fields={[
+            { label: 'Tipo de incapacidad', value: LEAVE_TYPE_LABEL[viewTarget.leave_type] },
+            { label: 'Médico que la expidió', value: viewTarget.issuing_doctor?.name ?? viewTarget.issuing_doctor_name_free },
+            { label: 'IPS que la expidió', value: viewTarget.ips_issued },
+            { label: 'Código CIE-10', value: viewTarget.diagnosis_code },
+            { label: 'Diagnóstico', value: viewTarget.diagnosis, fullWidth: true },
+            { label: 'Notas', value: viewTarget.notes, fullWidth: true },
+          ]}
+        />
+      )}
+
+      {attachTarget && (
+        <UploadDocumentModal
+          patientId={patientId}
+          patientName={patientName}
+          relatedType="medical_leave"
+          relatedId={attachTarget.id}
+          contextLabel={`Incapacidad ${formatDate(attachTarget.start_date)} — ${formatDate(attachTarget.end_date)}`}
+          onClose={() => setAttachTarget(null)}
+        />
+      )}
     </div>
   );
 }

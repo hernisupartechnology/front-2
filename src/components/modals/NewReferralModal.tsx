@@ -5,10 +5,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { referralService } from '@/services/api/referrals';
+import { toDateInputValue } from '@/utils/statusHelpers';
+import type { Referral } from '@/types';
 
 interface NewReferralModalProps {
   patientId: number;
   patientName: string;
+  referral?: Referral;
   onClose: () => void;
 }
 
@@ -22,15 +25,21 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function NewReferralModal({ patientId, patientName, onClose }: NewReferralModalProps) {
+export default function NewReferralModal({ patientId, patientName, referral, onClose }: NewReferralModalProps) {
   const queryClient = useQueryClient();
   const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { urgency: 'rutina' },
+    defaultValues: referral ? {
+      specialty: referral.specialty,
+      reason: referral.reason,
+      urgency: referral.urgency,
+      authorization_expiry_date: toDateInputValue(referral.authorization_expiry_date),
+      notes: referral.notes ?? '',
+    } : { urgency: 'rutina' },
   });
 
   const mutation = useMutation({
-    mutationFn: (v: FormValues) => referralService.create({ ...v, user_id: patientId }),
+    mutationFn: (v: FormValues) => (referral ? referralService.update(referral.id, v) : referralService.create({ ...v, user_id: patientId })),
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['referrals'] });
@@ -45,7 +54,9 @@ export default function NewReferralModal({ patientId, patientName, onClose }: Ne
       <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)]">
           <div>
-            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>Nueva remisión</h2>
+            <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>
+              {referral ? 'Editar remisión' : 'Nueva remisión'}
+            </h2>
             <p className="text-xs text-gray-500 mt-0.5">Para {patientName}</p>
           </div>
           <button onClick={onClose} className="btn btn--ghost p-2 rounded-full"><X size={18} /></button>
@@ -73,10 +84,12 @@ export default function NewReferralModal({ patientId, patientName, onClose }: Ne
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Vencimiento de autorización (si ya la tienen)</label>
-            <input type="date" className="input" {...register('authorization_expiry_date')} />
-          </div>
+          {!referral && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Vencimiento de autorización (si ya la tienen)</label>
+              <input type="date" className="input" {...register('authorization_expiry_date')} />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Notas</label>
@@ -84,7 +97,7 @@ export default function NewReferralModal({ patientId, patientName, onClose }: Ne
           </div>
 
           <button type="submit" disabled={mutation.isPending} className="btn btn--primary w-full py-3" style={{ borderRadius: '10px' }}>
-            {mutation.isPending ? 'Guardando...' : 'Registrar remisión'}
+            {mutation.isPending ? 'Guardando...' : referral ? 'Guardar cambios' : 'Registrar remisión'}
           </button>
         </form>
       </div>
