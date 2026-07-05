@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { medicationService } from '@/services/api/medications';
@@ -94,11 +94,29 @@ export default function NewMedicationModal({ patientId, patientName, medication,
   const isRecurring = watch('is_recurring');
   const frequency = watch('frequency');
 
+  // El listado de medicamentos no trae los horarios (solo el detalle) — al editar,
+  // se piden aparte para no mostrar datos vacíos o la sugerencia automática de creación.
+  const { data: savedSchedules } = useQuery({
+    queryKey: ['medications', medication?.id, 'schedules'],
+    queryFn: () => medicationService.schedules(medication!.id),
+    enabled: !!medication?.track_intake,
+  });
+
   useEffect(() => {
-    if (trackIntake && fields.length === 0 && frequency) {
+    if (savedSchedules) {
+      replace(savedSchedules.map((s) => ({
+        time_of_day: s.time_of_day.slice(0, 5),
+        label: s.label ?? '',
+        reminder_minutes_before: String(s.reminder_minutes_before),
+      })));
+    }
+  }, [savedSchedules, replace]);
+
+  useEffect(() => {
+    if (!medication && trackIntake && fields.length === 0 && frequency) {
       replace(suggestSchedulesFromFrequency(frequency).map((s) => ({ ...s, reminder_minutes_before: '5' })));
     }
-  }, [trackIntake, frequency, fields.length, replace]);
+  }, [medication, trackIntake, frequency, fields.length, replace]);
 
   const mutation = useMutation({
     mutationFn: async (v: FormValues) => {
@@ -157,7 +175,8 @@ export default function NewMedicationModal({ patientId, patientName, medication,
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 animate-fade-in" onClick={onClose}>
+      <div className="min-h-full flex items-center justify-center p-4">
       <div className="card w-full max-w-lg max-h-[90vh] overflow-y-auto glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)] sticky top-0 bg-[var(--color-surface)] dark:bg-[#1a2e1b] z-10">
           <div>
@@ -309,6 +328,7 @@ export default function NewMedicationModal({ patientId, patientName, medication,
             {mutation.isPending ? 'Guardando...' : medication ? 'Guardar cambios' : '¡Registrar medicamento!'}
           </button>
         </form>
+      </div>
       </div>
     </div>
   );

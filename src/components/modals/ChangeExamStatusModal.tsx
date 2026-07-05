@@ -64,7 +64,8 @@ export default function ChangeExamStatusModal({ exam, onClose }: ChangeExamStatu
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 animate-fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 animate-fade-in" onClick={onClose}>
+      <div className="min-h-full flex items-center justify-center p-4">
       <div className="card w-full max-w-md max-h-[90vh] overflow-y-auto glass" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-5 border-b border-[rgba(27,94,32,.08)]">
           <h2 className="font-bold text-lg" style={{ fontFamily: 'var(--font-display)', color: 'var(--color-primary)' }}>Cambiar estado del examen</h2>
@@ -112,6 +113,7 @@ export default function ChangeExamStatusModal({ exam, onClose }: ChangeExamStatu
             </form>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

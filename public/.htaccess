@@ -1,0 +1,23 @@
+# UparVital — SPA routing para Apache (cPanel/shared hosting)
+# React Router maneja las rutas en el navegador; sin esto, refrescar
+# una ruta como /dashboard o abrirla directo devolvería 404.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Deja pasar archivos y carpetas reales (assets, sw.js, manifest, íconos, etc.)
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Todo lo demás lo resuelve el index.html (SPA)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# El service worker debe poder actualizarse siempre — nunca cachearlo
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw\.js|registerSW\.js)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>

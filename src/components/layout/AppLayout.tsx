@@ -25,8 +25,7 @@ export default function AppLayout() {
 
       {/* Área principal */}
       <div
-        className="flex-1 flex flex-col transition-all duration-300"
-        style={{ marginLeft: sidebarCollapsed ? '72px' : '256px' }}
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64'}`}
       >
         {/* Header */}
         <Header />

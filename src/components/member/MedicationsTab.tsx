@@ -9,7 +9,7 @@ import NewMedicationModal from '@/components/modals/NewMedicationModal';
 import ChangeMedicationStatusModal from '@/components/modals/ChangeMedicationStatusModal';
 import UploadDocumentModal from '@/components/modals/UploadDocumentModal';
 import DetailModal from '@/components/modals/DetailModal';
-import AdherenceCalendar from '@/components/shared/AdherenceCalendar';
+import AdherenceCalendarModal from '@/components/modals/AdherenceCalendarModal';
 import { getStatusBadge, formatDate } from '@/utils/statusHelpers';
 
 interface MedicationsTabProps {
@@ -20,10 +20,10 @@ interface MedicationsTabProps {
 export default function MedicationsTab({ patientId, patientName }: MedicationsTabProps) {
   const [showNewModal, setShowNewModal] = useState(false);
   const [statusTarget, setStatusTarget] = useState<Medication | null>(null);
-  const [adherenceFor, setAdherenceFor] = useState<Medication | null>(null);
   const [attachTarget, setAttachTarget] = useState<Medication | null>(null);
   const [viewTarget, setViewTarget] = useState<Medication | null>(null);
   const [editTarget, setEditTarget] = useState<Medication | null>(null);
+  const [adherenceTarget, setAdherenceTarget] = useState<Medication | null>(null);
 
   const { data: alerts } = useQuery({
     queryKey: ['medications', 'alerts'],
@@ -48,7 +48,14 @@ export default function MedicationsTab({ patientId, patientName }: MedicationsTa
           <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-3">🔔 Alertas de renovación</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {memberAlerts.map((m) => (
-              <MedicationCard key={m.id} medication={m} onChangeStatus={setStatusTarget} onAttachDocument={setAttachTarget} onView={setViewTarget} />
+              <MedicationCard
+                key={m.id}
+                medication={m}
+                onChangeStatus={setStatusTarget}
+                onAttachDocument={setAttachTarget}
+                onShowAdherence={setAdherenceTarget}
+                onView={setViewTarget}
+              />
             ))}
           </div>
         </div>
@@ -79,23 +86,14 @@ export default function MedicationsTab({ patientId, patientName }: MedicationsTa
       {active.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2">
           {active.map((m) => (
-            <div key={m.id} onDoubleClick={() => m.track_intake && setAdherenceFor(m)}>
-              <MedicationCard medication={m} onChangeStatus={setStatusTarget} onAttachDocument={setAttachTarget} onView={setViewTarget} />
-              {m.track_intake && (
-                <button
-                  onClick={() => setAdherenceFor(adherenceFor?.id === m.id ? null : m)}
-                  className="text-xs mt-1.5 font-medium hover:underline"
-                  style={{ color: 'var(--color-primary)' }}
-                >
-                  {adherenceFor?.id === m.id ? 'Ocultar' : 'Ver'} calendario de adherencia
-                </button>
-              )}
-              {adherenceFor?.id === m.id && (
-                <div className="mt-2">
-                  <AdherenceCalendar medication={m} />
-                </div>
-              )}
-            </div>
+            <MedicationCard
+              key={m.id}
+              medication={m}
+              onChangeStatus={setStatusTarget}
+              onAttachDocument={setAttachTarget}
+              onShowAdherence={setAdherenceTarget}
+              onView={setViewTarget}
+            />
           ))}
         </div>
       )}
@@ -106,7 +104,15 @@ export default function MedicationsTab({ patientId, patientName }: MedicationsTa
             ✅ Finalizados / suspendidos ({finished.length})
           </summary>
           <div className="grid gap-3 sm:grid-cols-2 mt-3">
-            {finished.map((m) => <MedicationCard key={m.id} medication={m} onAttachDocument={setAttachTarget} onView={setViewTarget} />)}
+            {finished.map((m) => (
+              <MedicationCard
+                key={m.id}
+                medication={m}
+                onAttachDocument={setAttachTarget}
+                onShowAdherence={setAdherenceTarget}
+                onView={setViewTarget}
+              />
+            ))}
           </div>
         </details>
       )}
@@ -157,6 +163,10 @@ export default function MedicationsTab({ patientId, patientName }: MedicationsTa
 
       {statusTarget && (
         <ChangeMedicationStatusModal medication={statusTarget} onClose={() => setStatusTarget(null)} />
+      )}
+
+      {adherenceTarget && (
+        <AdherenceCalendarModal medication={adherenceTarget} onClose={() => setAdherenceTarget(null)} />
       )}
 
       {attachTarget && (

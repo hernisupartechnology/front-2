@@ -13,6 +13,7 @@ import MedicalLeavesTab from '@/components/member/MedicalLeavesTab';
 import VaccinationsTab from '@/components/member/VaccinationsTab';
 import VitalSignsTab from '@/components/member/VitalSignsTab';
 import DocumentsTab from '@/components/member/DocumentsTab';
+import SummaryTab from '@/components/member/SummaryTab';
 
 const TABS = [
   { key: 'resumen', label: 'Resumen' },
@@ -28,15 +29,12 @@ const TABS = [
 
 type TabKey = (typeof TABS)[number]['key'];
 
-/**
- * Historial médico del miembro. Tab "Citas" completo (Fase 2); el resto de
- * módulos se completan en las Fases 3–4 conforme se construyen sus Controllers.
- */
+/** Historial médico completo del miembro, organizado por pestañas. */
 export default function MemberHistory() {
   const { userId } = useParams<{ userId: string }>();
   const navigate = useNavigate();
   const { user: currentUser } = useAuthStore();
-  const [tab, setTab] = useState<TabKey>('citas');
+  const [tab, setTab] = useState<TabKey>('resumen');
 
   const { data: household, isLoading } = useQuery({
     queryKey: ['household', 'current'],
@@ -124,6 +122,7 @@ export default function MemberHistory() {
         ))}
       </div>
 
+      {tab === 'resumen' && <SummaryTab patientId={member.id} onNavigateTab={(t) => setTab(t as TabKey)} />}
       {tab === 'citas' && <AppointmentsTab patientId={member.id} patientName={member.name} />}
       {tab === 'medicamentos' && <MedicationsTab patientId={member.id} patientName={member.name} />}
       {tab === 'examenes' && <ExamsTab patientId={member.id} patientName={member.name} />}
@@ -132,12 +131,6 @@ export default function MemberHistory() {
       {tab === 'vacunas' && <VaccinationsTab patientId={member.id} patientName={member.name} />}
       {tab === 'signos' && <VitalSignsTab patientId={member.id} patientName={member.name} />}
       {tab === 'documentos' && <DocumentsTab patientId={member.id} patientName={member.name} />}
-
-      {tab === 'resumen' && (
-        <div className="card p-10 text-center text-sm text-gray-500">
-          El resumen con línea de tiempo y estadísticas consolidadas llega en la Fase 5.
-        </div>
-      )}
     </div>
   );
 }

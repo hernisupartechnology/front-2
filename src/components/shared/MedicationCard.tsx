@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, Paperclip, RefreshCw } from 'lucide-react';
+import { CalendarCheck, ChevronDown, ChevronRight, Paperclip, RefreshCw } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import type { Medication } from '@/types';
@@ -11,10 +11,11 @@ interface MedicationCardProps {
   medication: Medication;
   onChangeStatus?: (medication: Medication) => void;
   onAttachDocument?: (medication: Medication) => void;
+  onShowAdherence?: (medication: Medication) => void;
   onView?: (medication: Medication) => void;
 }
 
-export default function MedicationCard({ medication, onChangeStatus, onAttachDocument, onView }: MedicationCardProps) {
+export default function MedicationCard({ medication, onChangeStatus, onAttachDocument, onShowAdherence, onView }: MedicationCardProps) {
   const [showRenewals, setShowRenewals] = useState(false);
   const badge = getStatusBadge('medication', medication.status);
   const renewalTl = getMedicationRenewalTrafficLight(medication);
@@ -110,6 +111,14 @@ export default function MedicationCard({ medication, onChangeStatus, onAttachDoc
             style={{ minHeight: 'auto' }}
           >
             <Paperclip size={13} /> Adjuntar documento
+          </button>
+        )}
+        {medication.track_intake && onShowAdherence && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onShowAdherence(medication); }}
+            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
+          >
+            <CalendarCheck size={13} /> Calendario de tomas
           </button>
         )}
         {(medication.renewals?.length ?? 0) > 0 || medication.is_recurring ? (

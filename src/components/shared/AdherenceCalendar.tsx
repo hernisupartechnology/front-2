@@ -29,8 +29,9 @@ const MESES = [
 ];
 
 /**
- * Calendario de adherencia — grilla tipo "habit tracker" de GitHub, un color
+ * Calendario de tomas — grilla tipo "habit tracker" de GitHub, un color
  * por día según el % de tomas completadas. Click en un día → detalle de tomas.
+ * Se embebe dentro de MedicationCard (sin chrome de tarjeta propio).
  */
 export default function AdherenceCalendar({ medication }: AdherenceCalendarProps) {
   const now = new Date();
@@ -65,7 +66,7 @@ export default function AdherenceCalendar({ medication }: AdherenceCalendarProps
   const selectedLogs = selectedDay ? calendarByDate.get(selectedDay)?.logs ?? [] : [];
 
   return (
-    <div className="card p-4">
+    <div>
       {/* Estadísticas */}
       <div className="grid grid-cols-4 gap-2 mb-4 text-center">
         <Stat label="7 días" value={`${data.adherence_7d}%`} />
@@ -102,7 +103,7 @@ export default function AdherenceCalendar({ medication }: AdherenceCalendarProps
                     background: entry ? color : 'rgba(0,0,0,.03)',
                     color: entry ? 'white' : '#9E9E9E',
                   }}
-                  title={entry ? `${entry.percentage}% de adherencia` : 'Sin tomas programadas'}
+                  title={entry ? `${entry.percentage}% de tomas cumplidas` : 'Sin tomas programadas'}
                 >
                   {day}
                 </button>
