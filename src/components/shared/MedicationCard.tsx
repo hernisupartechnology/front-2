@@ -84,47 +84,61 @@ export default function MedicationCard({ medication, onChangeStatus, onAttachDoc
         <p className="text-xs mt-1.5 text-[var(--color-alert-red)]">Negado: {medication.denied_reason}</p>
       )}
 
-      <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[rgba(27,94,32,.08)] dark:border-[rgba(165,214,167,.08)]">
-        {!isFinal && onChangeStatus && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onChangeStatus(medication); }}
-            className="btn btn--secondary text-xs py-1.5 px-3"
-            style={{ minHeight: 'auto' }}
-          >
-            Cambiar estado
-          </button>
+      <div className="mt-3 pt-3 border-t border-[rgba(27,94,32,.08)] dark:border-[rgba(165,214,167,.08)] space-y-2">
+        {/* Acciones principales */}
+        {((!isFinal && onChangeStatus) || (medication.is_recurring && renewalTl && ['red', 'yellow'].includes(renewalTl.level))) && (
+          <div className="flex flex-wrap gap-2">
+            {!isFinal && onChangeStatus && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onChangeStatus(medication); }}
+                className="btn btn--secondary text-xs py-1.5 px-3 flex-1"
+                style={{ minHeight: 'auto' }}
+              >
+                Cambiar estado
+              </button>
+            )}
+            {medication.is_recurring && renewalTl && ['red', 'yellow'].includes(renewalTl.level) && (
+              <button
+                onClick={(e) => { e.stopPropagation(); renewMutation.mutate(); }}
+                disabled={renewMutation.isPending}
+                className="btn text-xs py-1.5 px-3 flex-1"
+                style={{ minHeight: 'auto', background: 'var(--color-alert-yellow)', color: '#4a3200' }}
+              >
+                Iniciar renovación
+              </button>
+            )}
+          </div>
         )}
-        {medication.is_recurring && renewalTl && ['red', 'yellow'].includes(renewalTl.level) && (
-          <button
-            onClick={(e) => { e.stopPropagation(); renewMutation.mutate(); }}
-            disabled={renewMutation.isPending}
-            className="btn text-xs py-1.5 px-3"
-            style={{ minHeight: 'auto', background: 'var(--color-alert-yellow)', color: '#4a3200' }}
-          >
-            Iniciar renovación
-          </button>
+
+        {/* Acciones secundarias — mismo peso visual, en fila pareja */}
+        {(onAttachDocument || (medication.track_intake && onShowAdherence)) && (
+          <div className="flex gap-2">
+            {onAttachDocument && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onAttachDocument(medication); }}
+                className="btn btn--ghost text-xs py-1.5 px-2 gap-1 flex-1 border border-[rgba(27,94,32,.15)] dark:border-[rgba(165,214,167,.15)]"
+                style={{ minHeight: 'auto' }}
+              >
+                <Paperclip size={13} /> Adjuntar
+              </button>
+            )}
+            {medication.track_intake && onShowAdherence && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onShowAdherence(medication); }}
+                className="btn btn--ghost text-xs py-1.5 px-2 gap-1 flex-1 border border-[rgba(27,94,32,.15)] dark:border-[rgba(165,214,167,.15)]"
+                style={{ minHeight: 'auto' }}
+              >
+                <CalendarCheck size={13} /> Calendario
+              </button>
+            )}
+          </div>
         )}
-        {onAttachDocument && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onAttachDocument(medication); }}
-            className="btn btn--ghost text-xs py-1.5 px-3 gap-1"
-            style={{ minHeight: 'auto' }}
-          >
-            <Paperclip size={13} /> Adjuntar documento
-          </button>
-        )}
-        {medication.track_intake && onShowAdherence && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onShowAdherence(medication); }}
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1"
-          >
-            <CalendarCheck size={13} /> Calendario de tomas
-          </button>
-        )}
+
+        {/* Historial de renovaciones — enlace discreto, siempre al final */}
         {(medication.renewals?.length ?? 0) > 0 || medication.is_recurring ? (
           <button
             onClick={(e) => { e.stopPropagation(); setShowRenewals(!showRenewals); }}
-            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 ml-auto"
+            className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 justify-end w-full"
           >
             {showRenewals ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
             Historial de renovaciones
