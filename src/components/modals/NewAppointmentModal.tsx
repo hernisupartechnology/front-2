@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X, ClipboardList, CalendarPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { appointmentService } from '@/services/api/appointments';
-import { toDateTimeInputValue } from '@/utils/statusHelpers';
+import { toDateTimeInputValue, fromDateTimeInputValue } from '@/utils/statusHelpers';
 import type { Appointment, RecurrenceType } from '@/types';
 
 interface NewAppointmentModalProps {
@@ -126,7 +126,7 @@ export default function NewAppointmentModal({ patientId, patientName, appointmen
       const payload = {
         specialty: v.specialty,
         doctor_name_free: v.doctor_name_free || undefined,
-        appointment_date: v.appointment_date,
+        appointment_date: fromDateTimeInputValue(v.appointment_date),
         appointment_type: v.appointment_type,
         ips: v.ips,
         address: v.address,

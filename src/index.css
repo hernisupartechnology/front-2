@@ -243,14 +243,26 @@ h1, h2, h3, h4, h5, h6 {
   border-color: rgba(165, 214, 167, 0.1);
 }
 
-/* Animaciones micro */
+/* Animaciones micro
+   IMPORTANTE — .animate-fade-in NUNCA debe animar `transform` (ni siquiera hacia
+   `transform: none`). Probado empíricamente: Chrome sigue tratando un elemento como
+   "con transform" a efectos de containing-block MIENTRAS tenga una animación que
+   toque esa propiedad con `animation-fill-mode: forwards` — sin importar en qué
+   valor termine el keyframe (incluso `none`). Como .animate-fade-in se usa en casi
+   toda página/tarjeta/tab, y esas páginas son ancestros de los modales `fixed
+   inset-0`, cualquier transform en este keyframe atrapaba los modales dentro de esa
+   tarjeta/página en vez de dejarlos cubrir toda la ventana. Por eso fadeIn solo anima
+   opacity — se perdió el pequeño slide-up de entrada, pero es la única forma
+   confirmada de que no rompa los modales anidados debajo. slideIn si necesita
+   transform (es su propósito) — solo usarlo en elementos que NUNCA sean ancestros
+   de algo `position: fixed` (hoy no se usa en ningún componente). */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 @keyframes slideIn {
   from { transform: translateX(-100%); }
-  to   { transform: translateX(0); }
+  to   { transform: none; }
 }
 @keyframes pulse-green {
   0%, 100% { box-shadow: 0 0 0 0 rgba(46, 125, 50, 0.4); }

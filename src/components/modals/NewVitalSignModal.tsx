@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { vitalSignService } from '@/services/api/vitalSigns';
+import { fromDateTimeInputValue } from '@/utils/statusHelpers';
 
 interface NewVitalSignModalProps {
   patientId: number;
@@ -30,7 +31,7 @@ export default function NewVitalSignModal({ patientId, patientName, onClose }: N
   const mutation = useMutation({
     mutationFn: (v: FormValues) => vitalSignService.create({
       user_id: patientId,
-      measurement_date: v.measurement_date || undefined,
+      measurement_date: v.measurement_date ? fromDateTimeInputValue(v.measurement_date) : undefined,
       systolic_pressure: v.systolic_pressure ? Number(v.systolic_pressure) : undefined,
       diastolic_pressure: v.diastolic_pressure ? Number(v.diastolic_pressure) : undefined,
       heart_rate: v.heart_rate ? Number(v.heart_rate) : undefined,

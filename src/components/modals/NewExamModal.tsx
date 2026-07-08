@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { examService } from '@/services/api/exams';
-import { toDateTimeInputValue } from '@/utils/statusHelpers';
+import { toDateTimeInputValue, fromDateTimeInputValue } from '@/utils/statusHelpers';
 import type { Exam } from '@/types';
 
 interface NewExamModalProps {
@@ -41,7 +41,10 @@ export default function NewExamModal({ patientId, patientName, exam, onClose }: 
   });
 
   const mutation = useMutation({
-    mutationFn: (v: FormValues) => (exam ? examService.update(exam.id, v) : examService.create({ ...v, user_id: patientId })),
+    mutationFn: (v: FormValues) => {
+      const payload = { ...v, scheduled_date: v.scheduled_date ? fromDateTimeInputValue(v.scheduled_date) : undefined };
+      return exam ? examService.update(exam.id, payload) : examService.create({ ...payload, user_id: patientId });
+    },
     onSuccess: (data) => {
       toast.success(data.message);
       queryClient.invalidateQueries({ queryKey: ['exams'] });

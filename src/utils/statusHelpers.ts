@@ -244,6 +244,21 @@ export function toDateTimeInputValue(dateStr: string | null | undefined): string
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+/**
+ * Convierte el valor "naive" de un <input type="datetime-local"> (ej. "2026-07-04T14:30",
+ * sin información de zona horaria — el navegador la interpreta como hora LOCAL del usuario)
+ * a un ISO string UTC listo para mandar a la API.
+ *
+ * IMPORTANTE: el backend mantiene `app.timezone` en UTC a propósito (ver config/app.php) —
+ * la conversión de "hora que el usuario escribió" a UTC debe pasar por acá, en el navegador,
+ * que es el único lugar donde se conoce con certeza la zona horaria real del usuario.
+ * `new Date("2026-07-04T14:30")` — sin sufijo de zona — el motor de JS la interpreta como
+ * hora local por spec, así que `.toISOString()` ya hace la conversión correcta a UTC.
+ */
+export function fromDateTimeInputValue(value: string): string {
+  return new Date(value).toISOString();
+}
+
 /** Formatea fecha y hora (ej: "3 de julio de 2026, 10:00 a.m."). */
 export function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return '—';

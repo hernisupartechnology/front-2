@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Exam, ExamStatus } from '@/types';
 import { examService } from '@/services/api/exams';
+import { fromDateTimeInputValue } from '@/utils/statusHelpers';
 
 interface ChangeExamStatusModalProps {
   exam: Exam;
@@ -52,7 +53,9 @@ export default function ChangeExamStatusModal({ exam, onClose }: ChangeExamStatu
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
       if (!target) throw new Error('no target');
-      return examService.changeStatus(exam.id, { status: target, ...values });
+      const payload = { ...values };
+      if (payload.scheduled_date) payload.scheduled_date = fromDateTimeInputValue(payload.scheduled_date);
+      return examService.changeStatus(exam.id, { status: target, ...payload });
     },
     onSuccess: (data) => {
       toast.success(data.message);

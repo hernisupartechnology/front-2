@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Appointment, AppointmentStatus } from '@/types';
 import { appointmentService } from '@/services/api/appointments';
+import { fromDateTimeInputValue } from '@/utils/statusHelpers';
 
 interface ChangeAppointmentStatusModalProps {
   appointment: Appointment;
@@ -67,13 +68,13 @@ export default function ChangeAppointmentStatusModal({ appointment, onClose }: C
 
       if (appointment.is_need) {
         return appointmentService.schedule(appointment.id, {
-          appointment_date: values.appointment_date!,
+          appointment_date: fromDateTimeInputValue(values.appointment_date!),
         });
       }
 
       return appointmentService.changeStatus(appointment.id, {
         status: target,
-        appointment_date: values.appointment_date,
+        appointment_date: values.appointment_date ? fromDateTimeInputValue(values.appointment_date) : undefined,
         diagnosis: values.diagnosis,
         next_appointment_date: values.next_appointment_date || undefined,
         next_appointment_notes: values.next_appointment_notes || undefined,
