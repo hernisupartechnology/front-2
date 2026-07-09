@@ -15,6 +15,12 @@
   RewriteRule ^ index.html [L]
 </IfModule>
 
+# Red de seguridad: si por algún motivo mod_rewrite no corre en este hosting
+# (AllowOverride restringido, orden de módulos, etc.), que al menos el 404
+# real de Apache/LiteSpeed sirva index.html en vez de una página de error
+# genérica — así React Router igual puede tomar el control y mostrar la ruta.
+ErrorDocument 404 /index.html
+
 # El service worker debe poder actualizarse siempre — nunca cachearlo
 <IfModule mod_headers.c>
   <FilesMatch "^(sw\.js|registerSW\.js)$">
