@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileBarChart, Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,6 +37,8 @@ interface FormValues {
 
 export default function Reports() {
   const { isOwner } = useAuthStore();
+  const [searchParams] = useSearchParams();
+  const preselectedUserId = searchParams.get('user_id') ?? '';
   const [sections, setSections] = useState<Record<string, boolean>>(
     Object.fromEntries(SECTIONS.map((s) => [s.key, true])),
   );
@@ -44,9 +47,20 @@ export default function Reports() {
   const { data: household } = useQuery({ queryKey: ['household', 'current'], queryFn: householdService.current });
   const { data: history, isLoading: loadingHistory } = useQuery({ queryKey: ['reports', 'history'], queryFn: reportService.history });
 
-  const { register, handleSubmit, watch } = useForm<FormValues>({
-    defaultValues: { report_type: 'individual', format: 'pdf', period: 'all' },
+  const { register, handleSubmit, watch, reset } = useForm<FormValues>({
+    defaultValues: { report_type: 'individual', format: 'pdf', period: 'all', user_id: preselectedUserId },
   });
+
+  // El <select> de miembro solo tiene sus <option> una vez que carga `household` —
+  // si llegamos con ?user_id= en la URL (desde el botón "Generar reporte" del
+  // historial de un miembro) hay que reaplicar el default cuando ya existan las
+  // opciones, o el navegador simplemente selecciona la primera por no encontrar
+  // ninguna con ese value todavía.
+  useEffect(() => {
+    if (preselectedUserId && household?.members?.some((m) => String(m.id) === preselectedUserId)) {
+      reset({ report_type: 'individual', format: 'pdf', period: 'all', user_id: preselectedUserId });
+    }
+  }, [household, preselectedUserId, reset]);
 
   const reportType = watch('report_type');
   const needsMember = reportType === 'individual';

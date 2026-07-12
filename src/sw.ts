@@ -8,7 +8,22 @@ declare const self: ServiceWorkerGlobalScope;
 precacheAndRoute(self.__WB_MANIFEST);
 
 self.skipWaiting();
-self.addEventListener('activate', () => self.clients.claim());
+
+// NO se llama self.clients.claim() acá a propósito. clients.claim() hace que el
+// SW recién activado tome control INMEDIATO de las pestañas ya abiertas —
+// incluida la que lo acaba de instalar, en pleno medio de sus peticiones
+// fetch() iniciales (dashboard, hoy-tomas, etc.). Ese cambio de controlador a
+// mitad de vuelo hace que Chrome reencole esas peticiones ya en curso, y en la
+// primera visita (service worker nuevo, sin nada precacheado todavía) se
+// traduce en varias peticiones "Stalled" 10-15s seguidas — exactamente lo que
+// reportó el usuario ("la primera vez que se abre toca actualizar varias
+// veces"). Sin clients.claim(), esta primera pestaña simplemente sigue sin
+// controlar hasta la próxima navegación/recarga (comportamiento normal de
+// cualquier SW), y ninguna petición en curso se ve afectada. Para el flujo de
+// notificationclick (self.clients.matchAll + postMessage más abajo) no hace
+// falta: para cuando el usuario puede recibir una notificación push ya usó la
+// app en sesiones normales previas, así que esas pestañas ya están controladas
+// por el ciclo normal de activación del SW.
 
 interface PushPayload {
   title: string;

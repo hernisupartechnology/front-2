@@ -1,10 +1,36 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, Clock3, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { intakeLogService } from '@/services/api/medications';
 import { formatTime } from '@/utils/statusHelpers';
 import type { TodayIntake, IntakeDisplayStatus } from '@/types';
+
+const NOW_FORMATTER = new Intl.DateTimeFormat('es-CO', {
+  timeZone: 'America/Bogota',
+  weekday: 'long',
+  day: 'numeric',
+  month: 'long',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true,
+});
+
+/**
+ * Reloj en vivo (hora Colombia, explícita) — visible junto a "Tomas de hoy"
+ * para que el usuario pueda comparar de un vistazo la hora que usa el
+ * dispositivo/navegador contra la hora real, útil para detectar si un
+ * "Atrasado" es real o un desfase de reloj/timezone del dispositivo.
+ */
+function useNowClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
 
 interface TodayIntakesPanelProps {
   /** Si se omite, trae las tomas de todos los miembros visibles (uso en Dashboard). */
@@ -33,6 +59,7 @@ const isResolved = (status: IntakeDisplayStatus) =>
 export default function TodayIntakesPanel({ userId, showPatientName }: TodayIntakesPanelProps) {
   const queryClient = useQueryClient();
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const now = useNowClock();
 
   const { data: intakes, isLoading } = useQuery({
     queryKey: ['medications', 'today-intakes', userId ?? 'all'],
@@ -75,10 +102,13 @@ export default function TodayIntakesPanel({ userId, showPatientName }: TodayInta
 
   return (
     <div className="card p-5">
-      <h2 className="font-semibold text-gray-700 dark:text-gray-200 mb-3 flex items-center gap-1.5">
-        <Clock3 size={16} style={{ color: 'var(--color-primary)' }} />
-        Tomas de hoy
-      </h2>
+      <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+        <h2 className="font-semibold text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+          <Clock3 size={16} style={{ color: 'var(--color-primary)' }} />
+          Tomas de hoy
+        </h2>
+        <span className="text-xs text-gray-400 tabular-nums capitalize">{NOW_FORMATTER.format(now)}</span>
+      </div>
 
       {allDone ? (
         <p className="text-sm text-[var(--color-alert-green)] py-2">✅ Todas las tomas de hoy completadas 🎉</p>

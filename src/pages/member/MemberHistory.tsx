@@ -99,7 +99,10 @@ export default function MemberHistory() {
             </div>
           </div>
 
-          <button className="btn btn--secondary text-sm gap-1.5">
+          <button
+            onClick={() => navigate(`/reports?user_id=${member.id}`)}
+            className="btn btn--secondary text-sm gap-1.5"
+          >
             <FileBarChart size={15} />
             Generar reporte
           </button>
