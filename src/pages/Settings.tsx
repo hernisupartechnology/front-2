@@ -5,13 +5,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   LogOut, Users, Bell, Stethoscope, HeartPulse, Download,
-  AlertTriangle, Smartphone, UserPlus, Crown, Trash2,
+  AlertTriangle, Smartphone, UserPlus, UserRoundPlus, Crown, Trash2, Pencil,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/api/auth';
 import { householdService } from '@/services/api/household';
 import { pushSubscriptionService } from '@/services/api/pushSubscriptions';
 import api from '@/lib/axios';
+import NewManagedMemberModal from '@/components/modals/NewManagedMemberModal';
 import type { User } from '@/types';
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
@@ -132,6 +133,7 @@ function ProfileSection({ user, onUpdated }: { user: User | null; onUpdated: (u:
 function HouseholdSection({ householdId, isOwner, currentUserId }: { householdId: number; isOwner: boolean; currentUserId?: number }) {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'member' | 'viewer'>('member');
+  const [managedModal, setManagedModal] = useState<{ open: boolean; member?: User }>({ open: false });
   const queryClient = useQueryClient();
 
   const { data: household } = useQuery({ queryKey: ['household', 'current'], queryFn: householdService.current });
@@ -179,22 +181,31 @@ function HouseholdSection({ householdId, isOwner, currentUserId }: { householdId
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{m.name}</p>
-                <p className="text-xs text-gray-400">{m.email}</p>
+                <p className="text-xs text-gray-400">{m.is_managed ? 'Perfil gestionado — sin cuenta propia' : m.email}</p>
               </div>
               {m.role === 'owner' && <Crown size={13} className="text-[var(--color-alert-yellow)] flex-shrink-0" />}
             </div>
 
             {isOwner && m.id !== currentUserId && m.role !== 'owner' && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <select
-                  defaultValue={m.role}
-                  onChange={(e) => roleMutation.mutate({ userId: m.id, role: e.target.value as 'member' | 'viewer' })}
-                  className="input py-1 text-xs w-24"
-                  style={{ minHeight: 'auto' }}
-                >
-                  <option value="member">Member</option>
-                  <option value="viewer">Viewer</option>
-                </select>
+                {m.is_managed ? (
+                  <button
+                    onClick={() => setManagedModal({ open: true, member: m })}
+                    className="btn btn--ghost p-1.5 rounded-full"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                ) : (
+                  <select
+                    defaultValue={m.role}
+                    onChange={(e) => roleMutation.mutate({ userId: m.id, role: e.target.value as 'member' | 'viewer' })}
+                    className="input py-1 text-xs w-24"
+                    style={{ minHeight: 'auto' }}
+                  >
+                    <option value="member">Member</option>
+                    <option value="viewer">Viewer</option>
+                  </select>
+                )}
                 <button
                   onClick={() => confirm(`¿Eliminar a ${m.name} del hogar?`) && removeMutation.mutate(m.id)}
                   className="btn btn--ghost p-1.5 rounded-full text-[var(--color-alert-red)]"
@@ -208,23 +219,43 @@ function HouseholdSection({ householdId, isOwner, currentUserId }: { householdId
       </div>
 
       {isOwner && (
-        <div className="flex flex-wrap gap-2 items-end pt-3 border-t border-[rgba(27,94,32,.08)]">
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Invitar por correo</label>
-            <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} type="email" className="input" placeholder="correo@ejemplo.com" />
+        <div className="space-y-3 pt-3 border-t border-[rgba(27,94,32,.08)]">
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-1.5">
+              Familiar sin correo propio (niños, adultos mayores) — tú administras su información.
+            </p>
+            <button onClick={() => setManagedModal({ open: true })} className="btn btn--secondary gap-1.5 text-sm">
+              <UserRoundPlus size={15} /> Agregar familiar
+            </button>
           </div>
-          <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as 'member' | 'viewer')} className="input w-28">
-            <option value="member">Member</option>
-            <option value="viewer">Viewer</option>
-          </select>
-          <button
-            onClick={() => inviteEmail && inviteMutation.mutate()}
-            disabled={inviteMutation.isPending || !inviteEmail}
-            className="btn btn--primary gap-1.5 py-2.5"
-          >
-            <UserPlus size={15} /> Invitar
-          </button>
+
+          <div className="flex flex-wrap gap-2 items-end">
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Invitar por correo (esa persona usará su propia cuenta)</label>
+              <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} type="email" className="input" placeholder="correo@ejemplo.com" />
+            </div>
+            <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as 'member' | 'viewer')} className="input w-28">
+              <option value="member">Member</option>
+              <option value="viewer">Viewer</option>
+            </select>
+            <button
+              onClick={() => inviteEmail && inviteMutation.mutate()}
+              disabled={inviteMutation.isPending || !inviteEmail}
+              className="btn btn--primary gap-1.5 py-2.5"
+            >
+              <UserPlus size={15} /> Invitar
+            </button>
+          </div>
         </div>
+      )}
+
+      {managedModal.open && (
+        <NewManagedMemberModal
+          householdId={householdId}
+          supervisors={household?.members?.filter((m) => m.role !== 'viewer') ?? []}
+          member={managedModal.member}
+          onClose={() => setManagedModal({ open: false })}
+        />
       )}
     </section>
   );

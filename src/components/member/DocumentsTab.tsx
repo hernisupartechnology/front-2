@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, FolderOpen, Search, Trash2 } from 'lucide-react';
+import { Plus, FolderOpen, Search, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { medicalDocumentService } from '@/services/api/medicalDocuments';
 import { formatDate, formatFileSize } from '@/utils/statusHelpers';
@@ -25,13 +25,26 @@ export default function DocumentsTab({ patientId, patientName }: { patientId: nu
   const [showUpload, setShowUpload] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<DocumentType | ''>('');
+  const [page, setPage] = useState(1);
   const queryClient = useQueryClient();
 
-  const { data: documents, isLoading } = useQuery({
-    queryKey: ['medical-documents', { userId: patientId }],
-    queryFn: () => medicalDocumentService.list({ userId: patientId }),
+  // Búsqueda y filtro de tipo ahora van al backend (ya los soportaba, el
+  // frontend los ignoraba y filtraba en el navegador sobre TODO el historial
+  // descargado) — debounce para no mandar una petición por cada tecla.
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  useEffect(() => { setPage(1); }, [debouncedSearch, typeFilter]);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['medical-documents', { userId: patientId, search: debouncedSearch, type: typeFilter, page }],
+    queryFn: () => medicalDocumentService.list({ userId: patientId, search: debouncedSearch || undefined, type: typeFilter || undefined, page }),
   });
+  const documents = data?.data ?? [];
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => medicalDocumentService.remove(id),
@@ -42,14 +55,6 @@ export default function DocumentsTab({ patientId, patientName }: { patientId: nu
     },
     onError: () => toast.error('No se pudo eliminar el documento.'),
   });
-
-  const filtered = useMemo(() => {
-    return (documents ?? []).filter((d) => {
-      if (typeFilter && d.document_type !== typeFilter) return false;
-      if (search && !d.title.toLowerCase().includes(search.toLowerCase()) && !d.description?.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-  }, [documents, typeFilter, search]);
 
   const handleDelete = (doc: MedicalDocument) => {
     if (confirm(`¿Eliminar "${doc.title}"? Esta acción no se puede deshacer.`)) {
@@ -88,7 +93,7 @@ export default function DocumentsTab({ patientId, patientName }: { patientId: nu
         </div>
       )}
 
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && documents.length === 0 && (
         <div className="card p-10 flex flex-col items-center text-center gap-2">
           <FolderOpen className="text-gray-300" size={36} />
           <h3 className="font-semibold text-gray-700 dark:text-gray-200">Sin documentos</h3>
@@ -97,7 +102,7 @@ export default function DocumentsTab({ patientId, patientName }: { patientId: nu
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {filtered.map((doc, i) => (
+        {documents.map((doc, i) => (
           <div key={doc.id} className="group">
             <button onClick={() => setLightboxIndex(i)} className="w-full text-left relative">
               <DocumentThumbnail document={doc} />
@@ -115,11 +120,23 @@ export default function DocumentsTab({ patientId, patientName }: { patientId: nu
         ))}
       </div>
 
+      {data && data.last_page > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn btn--ghost p-2 rounded-full disabled:opacity-30">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-gray-500">Página {data.current_page} de {data.last_page}</span>
+          <button onClick={() => setPage((p) => Math.min(data.last_page, p + 1))} disabled={page === data.last_page} className="btn btn--ghost p-2 rounded-full disabled:opacity-30">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
+
       {showUpload && <UploadDocumentModal patientId={patientId} patientName={patientName} onClose={() => setShowUpload(false)} />}
 
       {lightboxIndex !== null && (
         <DocumentLightbox
-          documents={filtered}
+          documents={documents}
           initialIndex={lightboxIndex}
           onClose={() => setLightboxIndex(null)}
           onDelete={handleDelete}

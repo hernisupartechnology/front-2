@@ -45,10 +45,11 @@ export default function SummaryTab({ patientId, onNavigateTab }: SummaryTabProps
     queryKey: ['referrals', { userId: patientId }],
     queryFn: () => referralService.list({ userId: patientId }),
   });
-  const { data: leaves } = useQuery({
+  const { data: leavesPage } = useQuery({
     queryKey: ['medical-leaves', { userId: patientId }],
     queryFn: () => medicalLeaveService.list({ userId: patientId }),
   });
+  const leaves = leavesPage?.data;
   const { data: vaccinations } = useQuery({
     queryKey: ['vaccinations', { userId: patientId }],
     queryFn: () => vaccinationService.list({ userId: patientId }),

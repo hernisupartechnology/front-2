@@ -33,13 +33,47 @@ export const householdService = {
     return data.members;
   },
 
-  /** Invitar a un nuevo miembro por correo electrónico. */
+  /** Invitar a un nuevo miembro por correo electrónico (esa persona crea su propia cuenta). */
   async invite(email: string, roleAssigned: 'member' | 'viewer'): Promise<HouseholdInvitation> {
     const { data } = await api.post<{ invitation: HouseholdInvitation }>('/households/invite', {
       email,
       role_assigned: roleAssigned,
     });
     return data.invitation;
+  },
+
+  /** Crear directamente un perfil gestionado (sin correo/contraseña propios). */
+  async createManagedMember(householdId: number, payload: {
+    name: string;
+    phone?: string;
+    birthdate?: string;
+    gender?: 'masculino' | 'femenino' | 'otro';
+    blood_type?: string;
+    eps?: string;
+    ips_preferida?: string;
+    numero_afiliado?: string;
+    is_minor?: boolean;
+    supervised_by?: number | null;
+  }): Promise<User> {
+    const { data } = await api.post<{ member: User }>(`/households/${householdId}/managed-members`, payload);
+    return data.member;
+  },
+
+  /** Editar el perfil de un miembro gestionado (lo hace el owner/supervisor en su nombre). */
+  async updateManagedMember(householdId: number, userId: number, payload: Partial<{
+    name: string;
+    phone: string | null;
+    birthdate: string | null;
+    gender: 'masculino' | 'femenino' | 'otro' | null;
+    blood_type: string | null;
+    eps: string | null;
+    ips_preferida: string | null;
+    numero_afiliado: string | null;
+    is_minor: boolean;
+    supervised_by: number | null;
+  }>): Promise<User> {
+    const { data } = await api.put<{ member: User }>(`/households/${householdId}/managed-members/${userId}`, payload);
+    return data.member;
   },
 
   /** Unirse a un hogar con el código de 8 caracteres. */

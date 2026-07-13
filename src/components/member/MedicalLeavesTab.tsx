@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, FileText, Paperclip } from 'lucide-react';
+import { Plus, FileText, Paperclip, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { MedicalLeave } from '@/types';
 import { medicalLeaveService } from '@/services/api/medicalLeaves';
 import { formatDate } from '@/utils/statusHelpers';
@@ -21,11 +21,13 @@ export default function MedicalLeavesTab({ patientId, patientName }: { patientId
   const [attachTarget, setAttachTarget] = useState<MedicalLeave | null>(null);
   const [viewTarget, setViewTarget] = useState<MedicalLeave | null>(null);
   const [editTarget, setEditTarget] = useState<MedicalLeave | null>(null);
+  const [page, setPage] = useState(1);
 
-  const { data: leaves, isLoading } = useQuery({
-    queryKey: ['medical-leaves', { userId: patientId }],
-    queryFn: () => medicalLeaveService.list({ userId: patientId }),
+  const { data, isLoading } = useQuery({
+    queryKey: ['medical-leaves', { userId: patientId, page }],
+    queryFn: () => medicalLeaveService.list({ userId: patientId, page }),
   });
+  const leaves = data?.data;
 
   return (
     <div className="animate-fade-in space-y-4">
@@ -78,6 +80,18 @@ export default function MedicalLeavesTab({ patientId, patientName }: { patientId
           </div>
         ))}
       </div>
+
+      {data && data.last_page > 1 && (
+        <div className="flex items-center justify-center gap-3">
+          <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn btn--ghost p-2 rounded-full disabled:opacity-30">
+            <ChevronLeft size={16} />
+          </button>
+          <span className="text-sm text-gray-500">Página {data.current_page} de {data.last_page}</span>
+          <button onClick={() => setPage((p) => Math.min(data.last_page, p + 1))} disabled={page === data.last_page} className="btn btn--ghost p-2 rounded-full disabled:opacity-30">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      )}
 
       {showNew && <NewMedicalLeaveModal patientId={patientId} patientName={patientName} onClose={() => setShowNew(false)} />}
 

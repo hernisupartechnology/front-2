@@ -21,10 +21,19 @@ export default function VitalSignsTab({ patientId, patientName }: { patientId: n
     queryFn: () => vitalSignService.list({ userId: patientId }),
   });
 
+  // Gráficos aparte del historial completo de arriba: un paciente crónico
+  // puede tener años de mediciones, y el gráfico solo necesita las últimas
+  // 12 — pedirlas directamente al backend evita traer todo el historial (que
+  // ya se trae igual para la lista de abajo) solo para descartar casi todo
+  // en el navegador.
+  const { data: recentForChart } = useQuery({
+    queryKey: ['vital-signs', 'chart', { userId: patientId }],
+    queryFn: () => vitalSignService.list({ userId: patientId, limit: 12 }),
+  });
+
   const last12 = useMemo(() => {
-    return [...(vitalSigns ?? [])]
+    return [...(recentForChart ?? [])]
       .sort((a, b) => new Date(a.measurement_date).getTime() - new Date(b.measurement_date).getTime())
-      .slice(-12)
       .map((v) => ({
         date: formatDate(v.measurement_date.split('T')[0] ?? v.measurement_date),
         systolic_pressure: v.systolic_pressure,

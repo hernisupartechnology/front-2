@@ -1,5 +1,5 @@
 import api from '@/lib/axios';
-import type { MedicalDocument, DocumentRelatedType, DocumentType } from '@/types';
+import type { MedicalDocument, DocumentRelatedType, DocumentType, PaginatedResponse } from '@/types';
 
 interface MedicalDocumentResponse { message: string; data: MedicalDocument }
 
@@ -17,9 +17,10 @@ export interface UploadDocumentPayload {
 export const medicalDocumentService = {
   async list(filters: {
     userId?: number; type?: DocumentType; relatedType?: DocumentRelatedType; relatedId?: number; search?: string;
-  } = {}): Promise<MedicalDocument[]> {
-    const { data } = await api.get<{ data: MedicalDocument[] }>('/medical-documents', { params: filters });
-    return data.data;
+    page?: number; per_page?: number;
+  } = {}): Promise<PaginatedResponse<MedicalDocument>> {
+    const { data } = await api.get<PaginatedResponse<MedicalDocument>>('/medical-documents', { params: filters });
+    return data;
   },
 
   async upload(payload: UploadDocumentPayload): Promise<MedicalDocumentResponse> {

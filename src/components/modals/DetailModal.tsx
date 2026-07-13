@@ -37,11 +37,12 @@ export default function DetailModal({
   const visibleFields = fields.filter((f) => f.value !== null && f.value !== undefined && f.value !== '');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const { data: documents } = useQuery({
+  const { data: documentsPage } = useQuery({
     queryKey: ['medical-documents', { relatedType, relatedId }],
     queryFn: () => medicalDocumentService.list({ relatedType, relatedId }),
     enabled: !!relatedType && !!relatedId,
   });
+  const documents = documentsPage?.data;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 animate-fade-in" onClick={onClose}>

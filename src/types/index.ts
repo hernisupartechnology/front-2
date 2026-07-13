@@ -8,7 +8,8 @@ export type UserRole = 'owner' | 'member' | 'viewer';
 export interface User {
   id: number;
   name: string;
-  email: string;
+  /** null en perfiles gestionados (is_managed) — no tienen cuenta propia. */
+  email: string | null;
   avatar: string | null;
   role: UserRole;
   household_id: number | null;
@@ -20,6 +21,8 @@ export interface User {
   ips_preferida: string | null;
   numero_afiliado: string | null;
   is_minor: boolean;
+  /** Perfil creado directamente por el owner, sin login propio (niños, adultos mayores, etc.). */
+  is_managed: boolean;
   supervised_by: number | null;
   track_vital_signs: boolean;
   dark_mode: boolean;
